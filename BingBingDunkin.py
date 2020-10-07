@@ -1,34 +1,40 @@
-from random import randint, sample
+from random import randint, choices, sample
 from time import sleep
 from os import getcwd, path
 from urllib.parse import quote_plus
 import configparser
 from pytrends.request import TrendReq
 from selenium import webdriver
+from selenium.common import exceptions
 from selenium.webdriver.common.keys import Keys
 
-endpoints = {"news/search", "videos/search", "images/search", "shop", "search"}  # no leading /
+endpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
+distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
 GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
 
 """
  ____  __  __ _   ___    ____  __  __ _   ___    ____  _  _  __ _  __ _  __  __ _   _  
-(  _ \(  )(  ( \ / __)  (  _ \(  )(  ( \ / __)  (    \/ )( \(  ( \(  / )(  )(  ( \ (/  
- ) _ ( )( /    /( (_ \   ) _ ( )( /    /( (_ \   ) D () \/ (/    / )  (  )( /    /    
-(____/(__)\_)__) \___/  (____/(__)\_)__) \___/  (____/\____/\_)__)(__\_)(__)\_)__)    
-
+(  _ \(  )(  ( \ / __)  (  _ \(  )(  ( \ / __)  (    \/ )( \(  ( \(  / )(  )(  ( \ (/     ( (
+ ) _ ( )( /    /( (_ \   ) _ ( )( /    /( (_ \   ) D () \/ (/    / )  (  )( /    /         ) )
+(____/(__)\_)__) \___/  (____/(__)\_)__) \___/  (____/\____/\_)__)(__\_)(__)\_)__)       ........
+                                                                                         |      |]
+                                                                                         \      /
+                                                                                          `----'
 BingBingDunkin' is a program which automates getting search points for multiple accounts.
 """
 
 
-def wait_for(sec=2, jitter=True):
+def wait_for(sec=2, jitter=True, min=3, max=100):
     """
     A function which is provided a minimum amount of time and then adds a random amount
     to make the delay unpredictable.
+    :param max: The highest amount of jitter
+    :param min: The lowest amount of jitter
     :param sec: The minimum amount of time
     :param jitter: If you want jitter
     """
     if jitter:
-        sleep(sec + randint(3,95))
+        sleep(sec + randint(min, max))
     else:
         sleep(sec)
 
@@ -43,7 +49,7 @@ def google_trends() -> list:
     all_trendin_phrases = []
     while True:
         try:
-            #  Returns about top 20 trending phrases
+            #  Returns about top 20 trending words
             list_of_trending = pytrend.trending_searches(pn='united_states')[0].to_list()
             print(list_of_trending)
             break
@@ -51,10 +57,10 @@ def google_trends() -> list:
             print(e)
             wait_for(2, jitter=False)
 
-    #  Iterate through each search phrase
-    for phrase in list_of_trending:
+    #  Iterate through each search word
+    for word in list_of_trending:
         #  Getting rid of symbols since they mess up column names in a dataframe
-        phrase = ''.join( c for c in phrase if c not in "~`|\\!@#$%^&*()_+-=;:[]{}'\",./<>?" )
+        phrase = ''.join(c for c in word if c not in "~`|\\!@#$%^&*()_+-=;:[]{}'\",./<>?")
         pytrend.build_payload(kw_list=[phrase])
         while True:
             try:
@@ -75,7 +81,7 @@ def google_trends() -> list:
     return all_trendin_phrases
 
 
-def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int):
+def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mobile=False):
     """
     Start will compile a dictionary from all credentials stored in credentials.ini. For each account
     a browser will be started with the provided user agent and NUM_WORDS will be used to randomly select
@@ -98,44 +104,77 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int):
         #  Set up the driver profile
         profile = webdriver.FirefoxProfile()
         profile.set_preference("general.useragent.override", user_agent) # Sets user agent
-        profile.set_preference("dom.disable_beforeunload", True) # Disables firefox popups
+        profile.set_preference("dom.disable_beforeunload", True)  # Disables firefox popups
         try:
             driver = webdriver.Firefox(firefox_profile=profile, executable_path=getcwd() + "/{}".format(GECKO_DRIVER))
+            driver.set_page_load_timeout(15)  # Sets a timeout at 15 seconds
         except Exception as e:
             print('\nERROR:', e)
             exit(1)
 
         password = accounts[email]
         print("Account: ", email, password)
-        words_list = sample(all_trending_topics, NUM_WORDS)
+        words_list = sample(all_trending_topics, min(NUM_WORDS, len(all_trending_topics)))
 
         #  Login
         driver.get("https://login.live.com/")
         wait_for(5, jitter=False)
         elem = driver.find_element_by_name('loginfmt')
         elem.clear()
-        elem.send_keys(email) # add your login email id
+        elem.send_keys(email)
         elem.send_keys(Keys.RETURN)
         wait_for(4, jitter=False)
         elem1 = driver.find_element_by_name('passwd')
         elem1.clear()
-        elem1.send_keys(str(password)) # add your password
+        elem1.send_keys(str(password))
         elem1.send_keys(Keys.ENTER)
         wait_for(9, jitter=False)
 
-        #  Once logged in search using the random words
+        #  Once logged in search using the random phrases
         for num, phrase in enumerate(words_list):
-            url_base = 'https://www.bing.com/{}?q='.format(sample(endpoints, 1)[0])
+            endpoint = choices(endpoints, weights=distribution, k=1)[0]
+            url_base = 'https://www.bing.com/{}?q='.format(endpoint)
             print('{0}. URL : {1}'.format(str(num + 1), url_base + quote_plus(phrase)))
             #  Try the request until you get a response
             while True:
                 try:
                     driver.get(url_base + quote_plus(phrase))
-                    break
+                    if not mobile:  # Doesn't work for mobile
+                        #  Mimic human interaction by clicking on links on the page
+                        if endpoint == 'search':
+                            # The b_algo class hold the results
+                            link_elements = driver.find_elements_by_class_name("b_algo")
+                            returned_links = {}
+                            for el in link_elements:
+                                try:
+                                    h2 = el.find_element_by_tag_name('h2')
+                                except Exception:
+                                    continue
+                                a = h2.find_element_by_tag_name('a')
+                                href = a.get_attribute('href')
+                                #  Filter out anything that isn't a url
+                                if "bing" not in href and href != '':
+                                    returned_links[href] = a
+                            #  Choose between 0-3 links to click on
+                            amt = randint(0, min(len(returned_links), 3))
+                            for site in sample(returned_links.keys(), amt):
+                                wait_for(sec=1, jitter=True, min=3, max=8)
+                                print('\t\tClicking : {}'.format(site))
+                                try:
+                                    returned_links[site].click()
+                                #  The DOM is different sometimes clicking the link will error
+                                except exceptions.StaleElementReferenceException:
+                                    driver.get(site.split("#")[0])
+                                wait_for(sec=1, jitter=True, min=3, max=8)
+                                while "bing.com" not in driver.current_url:
+                                    driver.back()
+                    break  # While
+
                 except Exception as e1:
                     print(e1)
-                    wait_for(1)
-            wait_for(90, jitter=True)
+                    wait_for(1, jitter=True, min=2, max=10)
+
+            wait_for(3, jitter=True, min=0, max=100)
         #  Delete cookies
         driver.delete_all_cookies()
         driver.quit()
@@ -147,8 +186,9 @@ if __name__ == '__main__':
     DESKTOP_USERAGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 Edg/85.0.564.68"
     MOBILE_USERAGENT = "Mozilla/5.0 (Android 6.0.1; Mobile; rv:77.0) Gecko/77.0 Firefox/77.0"
     #  Don't change. More != better. There is a maximum amount of points you can get per day
-    NUM_WORDS_DESKTOP = 32  # the amount of searches per account (1 search = 5 pts)
-    NUM_WORDS_MOBILE = 22  # the amount of searches per account (1 search = 5 pts)
+    # the amount of searches per account (1 search = 5 pts)
+    NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
+    NUM_WORDS_MOBILE = 21  # 20 searches for 100 Mobile pts; 1 extra
 
     try:
         assert path.isfile(GECKO_DRIVER)
@@ -163,7 +203,7 @@ if __name__ == '__main__':
     start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP)
 
     print("Finished Desktop")
-    wait_for(60)
+    wait_for(60, jitter=False)
 
     print("Starting Mobile\n")
-    start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE)
+    start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE, mobile=True)
