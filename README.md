@@ -1,2 +1,22 @@
 # BingBingDunkin
 BingBingDunkin' is a program which automates getting search points for multiple accounts.
+
+# Usage
+`git clone https://github.com/SudoEspresso/BingBingDunkin.git`
+
+`pip3 install -r requirements.txt`
+
+- Click [here](https://github.com/mozilla/geckodriver/releases) to get the latest release of mozilla's web-driver
+  - Choose the appropriate one for your computers architecture
+  - Once downloaded extract the binary and inside `BingBingDunkin.py` set the full path to the binary
+
+- Modify credentials.ini to have the emails and passwords for each account
+  - Make sure to follow the naming scheme for each set of credentials Ex) email1= password1= ... email21= password21=
+  
+- Run it!
+  - `python3 BingBingDunkin.py`
+  
+# Tips
+- You can automate this process to run daily by setting a cron job (if on Linux) or by creating a scheduled task (if on Windows)
+  
+  
