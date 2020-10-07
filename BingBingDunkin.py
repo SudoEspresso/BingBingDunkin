@@ -1,6 +1,6 @@
 from random import randint, sample
 from time import sleep
-from os import getcwd
+from os import getcwd, path
 from urllib.parse import quote_plus
 import configparser
 from pytrends.request import TrendReq
@@ -99,7 +99,11 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int):
         profile = webdriver.FirefoxProfile()
         profile.set_preference("general.useragent.override", user_agent) # Sets user agent
         profile.set_preference("dom.disable_beforeunload", True) # Disables firefox popups
-        driver = webdriver.Firefox(firefox_profile=profile, executable_path=getcwd() + "/{}".format(GECKO_DRIVER))
+        try:
+            driver = webdriver.Firefox(firefox_profile=profile, executable_path=getcwd() + "/{}".format(GECKO_DRIVER))
+        except Exception as e:
+            print('\nERROR:', e)
+            exit(1)
 
         password = accounts[email]
         print("Account: ", email, password)
@@ -145,6 +149,12 @@ if __name__ == '__main__':
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     NUM_WORDS_DESKTOP = 32  # the amount of searches per account (1 search = 5 pts)
     NUM_WORDS_MOBILE = 22  # the amount of searches per account (1 search = 5 pts)
+
+    try:
+        assert path.isfile(GECKO_DRIVER)
+    except AssertionError as e:
+        print('\nERROR: {} NOT FOUND'.format(GECKO_DRIVER))
+        exit(1)
 
     print("Generating Trending Topics")
     all_trending_topics = google_trends()
