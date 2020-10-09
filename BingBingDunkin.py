@@ -385,6 +385,8 @@ if __name__ == '__main__':
     print("Running Daily Set")
     daily_set(DESKTOP_USERAGENT)
 
+    print("Finished Daily Sets")
+    wait_for(60, jitter=False)
 
     print("Getting Points")
     output_points(DESKTOP_USERAGENT)
