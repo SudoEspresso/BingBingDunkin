@@ -7,6 +7,8 @@ from pytrends.request import TrendReq
 from selenium import webdriver
 from selenium.common import exceptions
 from selenium.webdriver.common.keys import Keys
+from requests.exceptions import Timeout
+from tqdm import tqdm
 
 all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
@@ -58,8 +60,10 @@ def google_trends() -> list:
             print(e)
             wait_for(2, jitter=False)
 
+    print("Calculating hundreds of topics...", end='')
+
     #  Iterate through each search word
-    for word in list_of_trending:
+    for word in tqdm(list_of_trending):
         #  Getting rid of symbols since they mess up column names in a dataframe
         phrase = ''.join(c for c in word if c not in "~`|\\!@#$%^&*()_+-=;:[]{}'\",./<>?")
         pytrend.build_payload(kw_list=[phrase])
@@ -73,11 +77,13 @@ def google_trends() -> list:
                 #  Grab the related queries from the column and convert to a list
                 related_queries = df[phrase]['top']['query'].to_list()
                 all_trendin_phrases.extend(related_queries)
+                wait_for(1, jitter=False)
                 break
-            except Exception as e:
+            except Timeout as e:
                 print(phrase)
                 print(e)
                 wait_for(2, jitter=False)
+    print("\n\n")
     #  A list of all trend words as well as their related searches
     return all_trendin_phrases
 
@@ -162,8 +168,6 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
             #  This means that this account has finished collecting points
             find_account_points(email, driver)
 
-        #  Delete cookies
-        driver.delete_all_cookies()
         driver.quit()
         print()
 
@@ -234,87 +238,116 @@ def daily_set(driver: webdriver.Firefox):
     are automated when completed multiple days in a row Microsoft Rewards provides bonus pts.
     :param driver: The web driver used to interact with the browser
     """
-    # Daily set 1
-    # Just clicks the link 10 pts
-    driver.get("https://www.bing.com/")
-    points = driver.find_element_by_id("id_rc")
-    wait_for(9, jitter=False)
-    points.click()
-    wait_for(9, jitter=False)
-    driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
-    elem = driver.find_element_by_xpath("/html/body")
-    flyout = elem.find_element_by_id("modern-flyout")
-    free_ten_points = flyout.find_element_by_class_name("promo_cont")
-    free_ten_points.click()
-    wait_for(3, jitter=True, min=1, max=5)
-
-    # Daily set 2
-    # Complete the bing quiz 10 pts
-    driver.switch_to.default_content()
-    wait_for(9, jitter=False)
-    driver.get("https://www.bing.com/")
-    wait_for(9, jitter=False)
-    points = driver.find_element_by_id("id_rc")
-    points.click()
-    wait_for(9, jitter=False)
-    driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
-    elem = driver.find_element_by_xpath("/html/body")
-    flyout = elem.find_element_by_id("modern-flyout")
-    quiz = flyout.find_elements_by_class_name("promo_cont")[1]
-    wait_for(9, jitter=False)
-    quiz.click()
-    driver.switch_to.default_content()
-    wait_for(9, jitter=False)
-    for i in range(0, 10):
-        question = "QuestionPane" + str(i)
-        answer = "AnswerPane" + str(i)
-        content = driver.find_element_by_id("b_content")
-        olist = content.find_element_by_id("b_results")
-        canvas = olist.find_element_by_id("wkCanvas")
-        qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
-        q1 = qa.find_element_by_id(question)
-        a = q1.find_element_by_class_name("wk_Circle")
-        a.click()
+    try:
+        # Daily set 1
+        # Just clicks the link 10 pts
+        while True:
+            try:
+                driver.get("https://www.bing.com/")
+                break
+            except Exception:
+                wait_for(1, jitter=False)
+        points = driver.find_element_by_id("id_rc")
         wait_for(9, jitter=False)
-
-        content = driver.find_element_by_id("b_content")
-        olist = content.find_element_by_id("b_results")
-        canvas = olist.find_element_by_id("wkCanvas")
-        qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
-        a1 = qa.find_element_by_id(answer)
-        next = a1.find_element_by_class_name("wk_buttons")
-        button = next.find_element_by_class_name("wk_button")
-        button.click()
+        points.click()
         wait_for(9, jitter=False)
+        driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
+        elem = driver.find_element_by_xpath("/html/body")
+        flyout = elem.find_element_by_id("modern-flyout")
+        free_ten_points = flyout.find_element_by_class_name("promo_cont")
+        free_ten_points.click()
+        wait_for(3, jitter=True, min=1, max=5)
+        print("Daily set 1")
+    except (exceptions.ElementNotInteractableException, exceptions.NoSuchElementException, IndexError) as e:
+        #  Either the user interacted with the screen or the daily set is already done
+        pass
 
-    # Daily set 3
-    # Complete the poll
-    driver.switch_to.default_content()
-    wait_for(9, jitter=False)
-    driver.get("https://www.bing.com/")
-    wait_for(9, jitter=False)
-    points = driver.find_element_by_id("id_rc")
-    points.click()
-    wait_for(9, jitter=False)
-    driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
-    elem = driver.find_element_by_xpath("/html/body")
-    flyout = elem.find_element_by_id("modern-flyout")
-    poll = flyout.find_elements_by_class_name("promo_cont")[2]
-    poll.click()
-    driver.switch_to.default_content()
-    wait_for(9, jitter=False)
-    trivia_overlay = driver.find_element_by_id("b_TriviaOverlay")
-    wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
-    button_overlay = wrapper.find_element_by_id("btOverlay")
-    overlay_panel = button_overlay.find_element_by_id("overlayPanel")
-    trivia_overlay_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
-    poll_overlay = trivia_overlay_data.find_element_by_id("btPollOverlay")
-    poll = poll_overlay.find_element_by_class_name("bt_poll")
-    options = poll.find_element_by_css_selector(".btOptions2.bt_pollOptions")
-    choice = options.find_element_by_id("btoption0")
-    choice.click()
-    wait_for(9, jitter=False)
-    driver.close()
+    try:
+        # Daily set 2
+        # Complete the bing quiz 10 pts
+        driver.switch_to.default_content()
+        wait_for(9, jitter=False)
+        while True:
+            try:
+                driver.get("https://www.bing.com/")
+                break
+            except Exception:
+                wait_for(1, jitter=False)
+        wait_for(9, jitter=False)
+        points = driver.find_element_by_id("id_rc")
+        points.click()
+        wait_for(9, jitter=False)
+        driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
+        elem = driver.find_element_by_xpath("/html/body")
+        flyout = elem.find_element_by_id("modern-flyout")
+        quiz = flyout.find_elements_by_class_name("promo_cont")[1]
+        wait_for(9, jitter=False)
+        quiz.click()
+        driver.switch_to.default_content()
+        wait_for(9, jitter=False)
+        for i in range(0, 10):
+            question = "QuestionPane" + str(i)
+            answer = "AnswerPane" + str(i)
+            content = driver.find_element_by_id("b_content")
+            olist = content.find_element_by_id("b_results")
+            canvas = olist.find_element_by_id("wkCanvas")
+            qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
+            q1 = qa.find_element_by_id(question)
+            a = q1.find_element_by_class_name("wk_Circle")
+            a.click()
+            wait_for(9, jitter=False)
+
+            content = driver.find_element_by_id("b_content")
+            olist = content.find_element_by_id("b_results")
+            canvas = olist.find_element_by_id("wkCanvas")
+            qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
+            a1 = qa.find_element_by_id(answer)
+            next = a1.find_element_by_class_name("wk_buttons")
+            button = next.find_element_by_class_name("wk_button")
+            button.click()
+            wait_for(9, jitter=False)
+        print("Daily set 2")
+    except (exceptions.ElementNotInteractableException, exceptions.NoSuchElementException, IndexError) as e:
+        #  Either the user interacted with the screen or the daily set is already done
+        pass
+
+    try:
+        # Daily set 3
+        # Complete the poll
+        driver.switch_to.default_content()
+        wait_for(9, jitter=False)
+        while True:
+            try:
+                driver.get("https://www.bing.com/")
+                break
+            except Exception:
+                wait_for(1, jitter=False)
+        wait_for(9, jitter=False)
+        points = driver.find_element_by_id("id_rc")
+        points.click()
+        wait_for(9, jitter=False)
+        driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
+        elem = driver.find_element_by_xpath("/html/body")
+        flyout = elem.find_element_by_id("modern-flyout")
+        poll = flyout.find_elements_by_class_name("promo_cont")[2]
+        poll.click()
+        driver.switch_to.default_content()
+        wait_for(9, jitter=False)
+        trivia_overlay = driver.find_element_by_id("b_TriviaOverlay")
+        wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+        button_overlay = wrapper.find_element_by_id("btOverlay")
+        overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+        trivia_overlay_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+        poll_overlay = trivia_overlay_data.find_element_by_id("btPollOverlay")
+        poll = poll_overlay.find_element_by_class_name("bt_poll")
+        options = poll.find_element_by_css_selector(".btOptions2.bt_pollOptions")
+        choice = options.find_element_by_id("btoption0")
+        choice.click()
+        wait_for(9, jitter=False)
+        print("Daily set 3")
+    except (exceptions.ElementNotInteractableException, exceptions.NoSuchElementException, IndexError) as e:
+        #  Either the user interacted with the screen or the daily set is already done
+        pass
 
 
 def print_report(time_taken):
@@ -340,7 +373,7 @@ if __name__ == '__main__':
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     #  the amount of searches per account (1 search = 5 pts)
     NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
-    NUM_WORDS_MOBILE = 21  # 20 searches for 100 Mobile pts; 1 extra
+    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra
 
     try:
         assert path.isfile(GECKO_DRIVER)
@@ -350,7 +383,7 @@ if __name__ == '__main__':
 
     print(ASCII_ART)
 
-    print("Generating Trending Topics")
+    print("Google Trending Topics")
     all_trending_topics = google_trends()
 
     START_TIME = time()
