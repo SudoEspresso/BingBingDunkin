@@ -60,8 +60,6 @@ def google_trends() -> list:
             print(e)
             wait_for(2, jitter=False)
 
-    print("Calculating hundreds of topics...", end='')
-
     #  Iterate through each search word
     for word in tqdm(list_of_trending):
         #  Getting rid of symbols since they mess up column names in a dataframe
