@@ -1,5 +1,5 @@
 from random import randint, choices, sample
-from time import sleep
+from time import sleep, time
 from os import getcwd, path
 from urllib.parse import quote_plus
 import configparser
@@ -8,20 +8,10 @@ from selenium import webdriver
 from selenium.common import exceptions
 from selenium.webdriver.common.keys import Keys
 
-endpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
+all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
-GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
-
-"""
- ____  __  __ _   ___    ____  __  __ _   ___    ____  _  _  __ _  __ _  __  __ _   _  
-(  _ \(  )(  ( \ / __)  (  _ \(  )(  ( \ / __)  (    \/ )( \(  ( \(  / )(  )(  ( \ (/     ( (
- ) _ ( )( /    /( (_ \   ) _ ( )( /    /( (_ \   ) D () \/ (/    / )  (  )( /    /         ) )
-(____/(__)\_)__) \___/  (____/(__)\_)__) \___/  (____/\____/\_)__)(__\_)(__)\_)__)       ........
-                                                                                         |      |]
-                                                                                         \      /
-                                                                                          `----'
-BingBingDunkin' is a program which automates getting search points for multiple accounts.
-"""
+GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
+FINAL_REPORT = {}
 
 ASCII_ART = """
  ____  __  __ _   ___    ____  __  __ _   ___    ____  _  _  __ _  __ _  __  __ _   _  
@@ -32,6 +22,8 @@ ASCII_ART = """
                                                                                          \      /
                                                                                           `----'
 """
+
+
 def wait_for(sec=2, jitter=True, min=3, max=100):
     """
     A function which is provided a minimum amount of time and then adds a random amount
@@ -41,6 +33,7 @@ def wait_for(sec=2, jitter=True, min=3, max=100):
     :param sec: The minimum amount of time
     :param jitter: If you want jitter
     """
+    assert min <= max
     if jitter:
         sleep(sec + randint(min, max))
     else:
@@ -89,11 +82,13 @@ def google_trends() -> list:
     return all_trendin_phrases
 
 
-def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mobile=False):
+def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDesktop=False):
     """
     Start will compile a dictionary from all credentials stored in credentials.ini. For each account
     a browser will be started with the provided user agent and NUM_WORDS will be used to randomly select
     an amount of phrases from all_trending_topics.
+    :param NUM_WORDS: The number of search phrases to randomly select from the google trending searches
+    :param mimicDesktop: if True will mimic user interaction by clicking on results (only for desktop)
     :param all_trending_topics: A list of strings which have search phrases
     :param user_agent: String which represents the browser
     """
@@ -111,7 +106,7 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mobile=Fal
     for email in accounts.keys():
         #  Set up the driver profile
         profile = webdriver.FirefoxProfile()
-        profile.set_preference("general.useragent.override", user_agent) # Sets user agent
+        profile.set_preference("general.useragent.override", user_agent)  # Sets user agent
         profile.set_preference("dom.disable_beforeunload", True)  # Disables firefox popups
         try:
             driver = webdriver.Firefox(firefox_profile=profile, executable_path=getcwd() + "/{}".format(GECKO_DRIVER))
@@ -138,44 +133,19 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mobile=Fal
         elem1.send_keys(Keys.ENTER)
         wait_for(9, jitter=False)
 
-        #  Once logged in search using the random phrases
+        #  Once logged in search using the random google trending phrases
         for num, phrase in enumerate(words_list):
-            endpoint = choices(endpoints, weights=distribution, k=1)[0]
+            #  Select a endpoint to use (search/ has the highest probability)
+            endpoint = choices(all_enpoints, weights=distribution, k=1)[0]
             url_base = 'https://www.bing.com/{}?q='.format(endpoint)
             print('{0}. URL : {1}'.format(str(num + 1), url_base + quote_plus(phrase)))
             #  Try the request until you get a response
             while True:
                 try:
                     driver.get(url_base + quote_plus(phrase))
-                    if not mobile:  # Doesn't work for mobile
+                    if mimicDesktop and endpoint == 'search':  # Doesn't work for mobile
                         #  Mimic human interaction by clicking on links on the page
-                        if endpoint == 'search':
-                            # The b_algo class hold the results
-                            link_elements = driver.find_elements_by_class_name("b_algo")
-                            returned_links = {}
-                            for el in link_elements:
-                                try:
-                                    h2 = el.find_element_by_tag_name('h2')
-                                except Exception:
-                                    continue
-                                a = h2.find_element_by_tag_name('a')
-                                href = a.get_attribute('href')
-                                #  Filter out anything that isn't a url
-                                if "bing" not in href and href != '':
-                                    returned_links[href] = a
-                            #  Choose between 0-3 links to click on
-                            amt = randint(0, min(len(returned_links), 3))
-                            for site in sample(returned_links.keys(), amt):
-                                wait_for(sec=1, jitter=True, min=3, max=8)
-                                print('\t\tClicking : {}'.format(site))
-                                try:
-                                    returned_links[site].click()
-                                #  The DOM is different sometimes clicking the link will error
-                                except exceptions.StaleElementReferenceException:
-                                    driver.get(site.split("#")[0])
-                                wait_for(sec=1, jitter=True, min=3, max=8)
-                                while "bing.com" not in driver.current_url:
-                                    driver.back()
+                        mimic_desktop_interaction(driver)
                     break  # While
 
                 except Exception as e1:
@@ -183,171 +153,184 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mobile=Fal
                     wait_for(1, jitter=True, min=2, max=10)
 
             wait_for(3, jitter=True, min=0, max=100)
+        if mimicDesktop:  # if Desktop
+            #  This condition hits when the desktop searches have finished
+            print("Starting Daily Set")
+            daily_set(driver)
+            print("Finished Daily Set")
+        else:  # if mobile
+            #  This means that this account has finished collecting points
+            find_account_points(email, driver)
+
         #  Delete cookies
         driver.delete_all_cookies()
         driver.quit()
         print()
 
 
-def output_points(user_agent):
+def mimic_desktop_interaction(driver: webdriver.Firefox):
+    """
+    After a search using bing.com/search this function will go through the page and find
+    any clickable search results. A number between 0 - 3 will be chosen and that will be
+    how many of the links are clicked and loaded.
+    :param driver: The web driver used to interact with the browser
+    """
+    # The b_algo class hold the results
+    link_elements = driver.find_elements_by_class_name("b_algo")
+    returned_links = {}
+    for el in link_elements:
+        try:
+            h2 = el.find_element_by_tag_name('h2')
+        except Exception:
+            #  Some times h2 can't be found in this case just skip to the
+            #  next element since there should be plenty to choose from
+            continue
+        a = h2.find_element_by_tag_name('a')
+        href = a.get_attribute('href')
+        #  Filter out anything that isn't a url
+        if "bing" not in href and href != '':
+            returned_links[href] = a
+    #  Choose between 0-3 links to click on
+    amt = randint(0, min(len(returned_links), 3))
+    for site in sample(returned_links.keys(), amt):
+        wait_for(sec=1, jitter=True, min=3, max=8)
+        print('\t\tClicking : {}'.format(site))
+        try:
+            returned_links[site].click()
+        #  The DOM is different sometimes clicking the link will error
+        except exceptions.StaleElementReferenceException:
+            driver.get(site.split("#")[0])
+        wait_for(sec=1, jitter=True, min=3, max=8)
+        while "bing.com" not in driver.current_url:
+            driver.back()
+
+
+def find_account_points(email: str, driver: webdriver.Firefox):
+    """
+    Will collect and store the account points corresponding to the given email
+    :param email: The email address
+    :param driver: The web driver used to interact with the browser
+    """
+    driver.get("https://www.bing.com/")
+    points = driver.find_element_by_id("id_rc")
+    wait_for(4, jitter=False)
+    points.click()
+    wait_for(4, jitter=False)
+    points.click()
+    wait_for(4, jitter=False)
+    points.click()
+    wait_for(8, jitter=True, min=5, max=13)
+    points_num = int(points.text)
+
+    global FINAL_REPORT
+    #  Modify the global var and add the account with its pts
+    FINAL_REPORT[email] = points_num
+
+
+def daily_set(driver: webdriver.Firefox):
+    """
+    The daily set is composed of 3 items, the first being a simple click search, the
+    second being a 10 question quiz and the last being a poll. All three of these tasks
+    are automated when completed multiple days in a row Microsoft Rewards provides bonus pts.
+    :param driver: The web driver used to interact with the browser
+    """
+    # Daily set 1
+    # Just clicks the link 10 pts
+    driver.get("https://www.bing.com/")
+    points = driver.find_element_by_id("id_rc")
+    wait_for(9, jitter=False)
+    points.click()
+    wait_for(9, jitter=False)
+    driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
+    elem = driver.find_element_by_xpath("/html/body")
+    flyout = elem.find_element_by_id("modern-flyout")
+    free_ten_points = flyout.find_element_by_class_name("promo_cont")
+    free_ten_points.click()
+    wait_for(3, jitter=True, min=1, max=5)
+
+    # Daily set 2
+    # Complete the bing quiz 10 pts
+    driver.switch_to.default_content()
+    wait_for(9, jitter=False)
+    driver.get("https://www.bing.com/")
+    wait_for(9, jitter=False)
+    points = driver.find_element_by_id("id_rc")
+    points.click()
+    wait_for(9, jitter=False)
+    driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
+    elem = driver.find_element_by_xpath("/html/body")
+    flyout = elem.find_element_by_id("modern-flyout")
+    quiz = flyout.find_elements_by_class_name("promo_cont")[1]
+    wait_for(9, jitter=False)
+    quiz.click()
+    driver.switch_to.default_content()
+    wait_for(9, jitter=False)
+    for i in range(0, 10):
+        question = "QuestionPane" + str(i)
+        answer = "AnswerPane" + str(i)
+        content = driver.find_element_by_id("b_content")
+        olist = content.find_element_by_id("b_results")
+        canvas = olist.find_element_by_id("wkCanvas")
+        qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
+        q1 = qa.find_element_by_id(question)
+        a = q1.find_element_by_class_name("wk_Circle")
+        a.click()
+        wait_for(9, jitter=False)
+
+        content = driver.find_element_by_id("b_content")
+        olist = content.find_element_by_id("b_results")
+        canvas = olist.find_element_by_id("wkCanvas")
+        qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
+        a1 = qa.find_element_by_id(answer)
+        next = a1.find_element_by_class_name("wk_buttons")
+        button = next.find_element_by_class_name("wk_button")
+        button.click()
+        wait_for(9, jitter=False)
+
+    # Daily set 3
+    # Complete the poll
+    driver.switch_to.default_content()
+    wait_for(9, jitter=False)
+    driver.get("https://www.bing.com/")
+    wait_for(9, jitter=False)
+    points = driver.find_element_by_id("id_rc")
+    points.click()
+    wait_for(9, jitter=False)
+    driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
+    elem = driver.find_element_by_xpath("/html/body")
+    flyout = elem.find_element_by_id("modern-flyout")
+    poll = flyout.find_elements_by_class_name("promo_cont")[2]
+    poll.click()
+    driver.switch_to.default_content()
+    wait_for(9, jitter=False)
+    trivia_overlay = driver.find_element_by_id("b_TriviaOverlay")
+    wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+    button_overlay = wrapper.find_element_by_id("btOverlay")
+    overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+    trivia_overlay_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+    poll_overlay = trivia_overlay_data.find_element_by_id("btPollOverlay")
+    poll = poll_overlay.find_element_by_class_name("bt_poll")
+    options = poll.find_element_by_css_selector(".btOptions2.bt_pollOptions")
+    choice = options.find_element_by_id("btoption0")
+    choice.click()
+    wait_for(9, jitter=False)
+    driver.close()
+
+
+def print_report(time_taken):
+    """
+    Once everything is complete the resulting points will be output
+    :param time_taken: The amount of time taken to complete all searching
+    """
+    global FINAL_REPORT
     print("\n\n\n")
     print("POINTS REPORT")
-    config = configparser.ConfigParser()
-    config.read("credentials.ini")
-    accounts = {}
-    #  Create a dict of email:pass
-    for key in config['DEFAULT']:
-        if 'email' in key:
-            accounts[config['DEFAULT'][key]] = config['DEFAULT']['password' + key.split("email")[1]]
-
-    for email in accounts.keys():
-        #  Set up the driver profile
-        profile = webdriver.FirefoxProfile()
-        profile.set_preference("general.useragent.override", user_agent)  # Sets user agent
-        profile.set_preference("dom.disable_beforeunload", True)  # Disables firefox popups
-        try:
-            driver = webdriver.Firefox(firefox_profile=profile, executable_path=getcwd() + "/{}".format(GECKO_DRIVER))
-            driver.set_page_load_timeout(15)  # Sets a timeout at 15 seconds
-        except Exception as e:
-            print('\nERROR:', e)
-            exit(1)
-
-        password = accounts[email]
-
-        driver.get("https://login.live.com/")
-        wait_for(5, jitter=False)
-        elem = driver.find_element_by_name('loginfmt')
-        elem.clear()
-        elem.send_keys(email)
-        elem.send_keys(Keys.RETURN)
-        wait_for(4, jitter=False)
-        elem1 = driver.find_element_by_name('passwd')
-        elem1.clear()
-        elem1.send_keys(str(password))
-        elem1.send_keys(Keys.ENTER)
-        wait_for(9, jitter=False)
-
-        driver.get("https://www.bing.com/")
-        points = driver.find_element_by_id("id_rc")
-        wait_for(9, jitter=False)
-        points.click()
-        wait_for(9, jitter=False)
-        points.click()
-        wait_for(9, jitter=False)
-        points.click()
-        wait_for(9, jitter=False)
-        print(email)
-        points_num = int(points.text)
-        print("\tTotal points: ", points_num)
-        if points_num >= 6500:
+    print("Total Time: {} seconds".format(time_taken))
+    for email in FINAL_REPORT.keys():
+        points = FINAL_REPORT[email]
+        print("\tTotal points: ", points)
+        if points >= 6500:
             print("Time to cash in $$$")
-        wait_for(60, jitter=False)
-
-def daily_set(user_agent):
-    config = configparser.ConfigParser()
-    config.read("credentials.ini")
-    accounts = {}
-    #  Create a dict of email:pass
-    for key in config['DEFAULT']:
-        if 'email' in key:
-            accounts[config['DEFAULT'][key]] = config['DEFAULT']['password' + key.split("email")[1]]
-
-
-    for email in accounts.keys():
-        print("Daily set for ", email)
-        #  Set up the driver profile
-        profile = webdriver.FirefoxProfile()
-        profile.set_preference("general.useragent.override", user_agent)  # Sets user agent
-        profile.set_preference("dom.disable_beforeunload", True)  # Disables firefox popups
-        try:
-            driver = webdriver.Firefox(firefox_profile=profile, executable_path=getcwd() + "/{}".format(GECKO_DRIVER))
-            driver.set_page_load_timeout(15)  # Sets a timeout at 15 seconds
-        except Exception as e:
-            print('\nERROR:', e)
-            exit(1)
-
-        # daily set 1
-        driver.get("https://www.bing.com/")
-        points = driver.find_element_by_id("id_rc")
-        wait_for(9, jitter=False)
-        points.click()
-        wait_for(9, jitter=False)
-        driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
-        elem = driver.find_element_by_xpath("/html/body")
-        flyout = elem.find_element_by_id("modern-flyout")
-        free_ten_points = flyout.find_element_by_class_name("promo_cont")
-        free_ten_points.click()
-        wait_for(9, jitter=False)
-
-        # complete the bing quiz
-        count = 0
-        driver.switch_to.default_content()
-        wait_for(9, jitter=False)
-        driver.get("https://www.bing.com/")
-        wait_for(9, jitter=False)
-        points = driver.find_element_by_id("id_rc")
-        points.click()
-        wait_for(9, jitter=False)
-        driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
-        elem = driver.find_element_by_xpath("/html/body")
-        flyout = elem.find_element_by_id("modern-flyout")
-        quiz = flyout.find_elements_by_class_name("promo_cont")[1]
-        wait_for(9, jitter=False)
-        quiz.click()
-        driver.switch_to.default_content()
-        wait_for(9, jitter=False)
-        for i in range(0,10):
-            question = "QuestionPane" + str(i)
-            answer = "AnswerPane" + str(i)
-
-            content= driver.find_element_by_id("b_content")
-            olist = content.find_element_by_id("b_results")
-            canvas = olist.find_element_by_id("wkCanvas")
-            qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
-            q1 = qa.find_element_by_id(question)
-            a = q1.find_element_by_class_name("wk_Circle")
-            a.click()
-            wait_for(9, jitter=False)
-
-            content= driver.find_element_by_id("b_content")
-            olist = content.find_element_by_id("b_results")
-            canvas = olist.find_element_by_id("wkCanvas")
-            qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
-            a1 = qa.find_element_by_id(answer)
-            next = a1.find_element_by_class_name("wk_buttons")
-            button = next.find_element_by_class_name("wk_button")
-            button.click()
-            wait_for(9, jitter=False)
-
-
-        # complete the poll
-        driver.switch_to.default_content()
-        wait_for(9, jitter=False)
-        driver.get("https://www.bing.com/")
-        wait_for(9, jitter=False)
-        points = driver.find_element_by_id("id_rc")
-        points.click()
-        wait_for(9, jitter=False)
-        driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
-        elem = driver.find_element_by_xpath("/html/body")
-        flyout = elem.find_element_by_id("modern-flyout")
-        poll = flyout.find_elements_by_class_name("promo_cont")[2]
-        poll.click()
-        driver.switch_to.default_content()
-        wait_for(9, jitter=False)
-        trivia_overlay = driver.find_element_by_id("b_TriviaOverlay")
-        wrapper= trivia_overlay.find_element_by_id("overlayWrapper")
-        button_overlay = wrapper.find_element_by_id("btOverlay")
-        overlay_panel = button_overlay.find_element_by_id("overlayPanel")
-        trivia_overlay_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
-        poll_overlay = trivia_overlay_data.find_element_by_id("btPollOverlay")
-        poll = poll_overlay.find_element_by_class_name("bt_poll")
-        options = poll.find_element_by_css_selector(".btOptions2.bt_pollOptions")
-        choice = options.find_element_by_id("btoption0")
-        choice.click()
-        wait_for(9, jitter=False)
-        driver.close()
-
 
 
 if __name__ == '__main__':
@@ -355,7 +338,7 @@ if __name__ == '__main__':
     DESKTOP_USERAGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 Edg/85.0.564.68"
     MOBILE_USERAGENT = "Mozilla/5.0 (Android 6.0.1; Mobile; rv:77.0) Gecko/77.0 Firefox/77.0"
     #  Don't change. More != better. There is a maximum amount of points you can get per day
-    # the amount of searches per account (1 search = 5 pts)
+    #  the amount of searches per account (1 search = 5 pts)
     NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
     NUM_WORDS_MOBILE = 21  # 20 searches for 100 Mobile pts; 1 extra
 
@@ -370,23 +353,18 @@ if __name__ == '__main__':
     print("Generating Trending Topics")
     all_trending_topics = google_trends()
 
+    START_TIME = time()
     print("Starting Desktop")
-    start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP)
-
+    start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
     print("Finished Desktop")
+
     wait_for(60, jitter=False)
 
     print("Starting Mobile\n")
-    start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE, mobile=True)
-
+    start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE)
     print("Finished Mobile")
-    wait_for(60, jitter=False)
+    STOP_TIME = time()
 
-    print("Running Daily Set")
-    daily_set(DESKTOP_USERAGENT)
+    difference_in_time = STOP_TIME - START_TIME
 
-    print("Finished Daily Sets")
-    wait_for(60, jitter=False)
-
-    print("Getting Points")
-    output_points(DESKTOP_USERAGENT)
+    print_report(difference_in_time)
