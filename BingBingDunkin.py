@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
-GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
+GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
 FINAL_REPORT = {}
 
 ASCII_ART = """
@@ -111,7 +111,7 @@ def login(driver, email, password):
     elem1.send_keys(str(password))
     wait_for(5, jitter=False)
     elem1.send_keys(Keys.ENTER)
-    wait_for(10, jitter=False)
+    wait_for(5, jitter=False)
     #  Grabs the text after the login. Either blocked or asks to stay signed in
     login_result = driver.find_element_by_class_name("text-title").text
     if "Your account has been locked" in login_result:
@@ -406,7 +406,7 @@ if __name__ == '__main__':
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     #  the amount of searches per account (1 search = 5 pts)
     NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
-    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra
+    NUM_WORDS_MOBILE = 20  # 20 searches for 100 Mobile pts; 5 extra
 
     try:
         assert path.isfile(GECKO_DRIVER)
