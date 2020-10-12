@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
-GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
+GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
 FINAL_REPORT = {}
 
 ASCII_ART = """
@@ -64,7 +64,12 @@ def google_trends() -> list:
     for word in tqdm(list_of_trending):
         #  Getting rid of symbols since they mess up column names in a dataframe
         phrase = ''.join(c for c in word if c not in "~`|\\!@#$%^&*()_+-=;:[]{}'\",./<>?")
-        pytrend.build_payload(kw_list=[phrase])
+        while True:
+            try:
+                pytrend.build_payload(kw_list=[phrase])
+                break
+            except Exception as e:
+                wait_for(1, jitter=False)
         while True:
             try:
                 #  Will use google trends to find related queries to the phrase
@@ -78,15 +83,48 @@ def google_trends() -> list:
                 wait_for(1, jitter=False)
                 break
             except Timeout as e:
-                print(phrase)
-                print(e)
                 wait_for(2, jitter=False)
     print("\n\n")
     #  A list of all trend words as well as their related searches
     return all_trendin_phrases
 
 
-def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDesktop=False, find_points=False):
+def login(driver, email, password):
+    """
+
+    :param driver:
+    :param email:
+    :param password:
+    :return:
+    """
+    #  Login
+    driver.get("https://login.live.com/")
+    wait_for(5, jitter=False)
+    elem = driver.find_element_by_name('loginfmt')
+    elem.clear()
+    elem.send_keys(email)
+    wait_for(5, jitter=False)
+    elem.send_keys(Keys.RETURN)
+    wait_for(10, jitter=False)
+    elem1 = driver.find_element_by_name('passwd')
+    elem1.clear()
+    elem1.send_keys(str(password))
+    wait_for(5, jitter=False)
+    elem1.send_keys(Keys.ENTER)
+    wait_for(10, jitter=False)
+    #  Grabs the text after the login. Either blocked or asks to stay signed in
+    login_result = driver.find_element_by_class_name("text-title").text
+    if "Your account has been locked" in login_result:
+        print("ACCOUNT BLOCKED: {} {}\n".format(email, password))
+        global FINAL_REPORT
+        FINAL_REPORT[email] = "BLOCKED"
+        return True
+    else:
+        print("Successful Login: {}".format(email))
+        return False
+
+
+def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDesktop=False):
     """
     Start will compile a dictionary from all credentials stored in credentials.ini. For each account
     a browser will be started with the provided user agent and NUM_WORDS will be used to randomly select
@@ -121,50 +159,39 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
 
         password = accounts[email]
         print("Account: ", email, password)
+        isBlocked = login(driver, email, password)
+
+        if isBlocked:
+            driver.quit()
+            continue  # Go to next credentials, skip searches
+
         words_list = sample(all_trending_topics, min(NUM_WORDS, len(all_trending_topics)))
 
-        #  Login
-        driver.get("https://login.live.com/")
-        wait_for(5, jitter=False)
-        elem = driver.find_element_by_name('loginfmt')
-        elem.clear()
-        elem.send_keys(email)
-        wait_for(5, jitter=False)
-        elem.send_keys(Keys.RETURN)
-        wait_for(10, jitter=False)
-        elem1 = driver.find_element_by_name('passwd')
-        elem1.clear()
-        elem1.send_keys(str(password))
-        wait_for(5, jitter=False)
-        elem1.send_keys(Keys.ENTER)
-        wait_for(10, jitter=False)
-        if not find_points:
-            #  Once logged in search using the random google trending phrases
-            for num, phrase in enumerate(words_list):
-                #  Select a endpoint to use (search/ has the highest probability)
-                endpoint = choices(all_enpoints, weights=distribution, k=1)[0]
-                url_base = 'https://www.bing.com/{}?q='.format(endpoint)
-                print('{0}. URL : {1}'.format(str(num + 1), url_base + quote_plus(phrase)))
-                #  Try the request until you get a response
-                while True:
-                    try:
-                        driver.get(url_base + quote_plus(phrase))
-                        if mimicDesktop and endpoint == 'search':  # Doesn't work for mobile
-                            #  Mimic human interaction by clicking on links on the page
-                            mimic_desktop_interaction(driver)
-                        break  # While
+        #  Once logged in search using the random google trending phrases
+        for num, phrase in enumerate(words_list):
+            #  Select a endpoint to use (search/ has the highest probability)
+            endpoint = choices(all_enpoints, weights=distribution, k=1)[0]
+            url_base = 'https://www.bing.com/{}?q='.format(endpoint)
+            print('{0}. URL : {1}'.format(str(num + 1), url_base + quote_plus(phrase)))
+            #  Try the request until you get a response
+            while True:
+                try:
+                    driver.get(url_base + quote_plus(phrase))
+                    if mimicDesktop and endpoint == 'search':  # Doesn't work for mobile
+                        #  Mimic human interaction by clicking on links on the page
+                        mimic_desktop_interaction(driver)
+                    break  # While
 
-                    except Exception as e1:
-                        print(e1)
-                        wait_for(1, jitter=True, min=2, max=10)
+                except Exception as e1:
+                    print(e1)
+                    wait_for(1, jitter=True, min=2, max=10)
 
-                wait_for(3, jitter=True, min=0, max=60)
-            if mimicDesktop:  # if Desktop
-                #  This condition hits when the desktop searches have finished
-                print("Starting Daily Set")
-                daily_set(driver)
-                print("Finished Daily Set")
-        if find_points:  # if mobile
+            wait_for(3, jitter=True, min=0, max=60)
+        if mimicDesktop:  # if Desktop
+            #  This condition hits when the desktop searches have finished
+            print("Starting Daily Set")
+            daily_set(driver)
+            print("Finished Daily Set")
             #  This means that this account has finished collecting points
             find_account_points(email, driver)
 
@@ -185,11 +212,11 @@ def mimic_desktop_interaction(driver: webdriver.Firefox):
     for el in link_elements:
         try:
             h2 = el.find_element_by_tag_name('h2')
+            a = h2.find_element_by_tag_name('a')
         except Exception:
             #  Some times h2 can't be found in this case just skip to the
             #  next element since there should be plenty to choose from
             continue
-        a = h2.find_element_by_tag_name('a')
         href = a.get_attribute('href')
         #  Filter out anything that isn't a url
         if "bing" not in href and href != '':
@@ -259,7 +286,7 @@ def daily_set(driver: webdriver.Firefox):
         free_ten_points.click()
         wait_for(3, jitter=True, min=1, max=5)
         print("Daily set 1")
-    except (exceptions.ElementNotInteractableException, exceptions.NoSuchElementException, IndexError) as e:
+    except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
         pass
 
@@ -308,7 +335,7 @@ def daily_set(driver: webdriver.Firefox):
             button.click()
             wait_for(9, jitter=False)
         print("Daily set 2")
-    except (exceptions.ElementNotInteractableException, exceptions.NoSuchElementException, IndexError) as e:
+    except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
         pass
 
@@ -346,7 +373,7 @@ def daily_set(driver: webdriver.Firefox):
         choice.click()
         print("Daily set 3")
         wait_for(9, jitter=False)
-    except (exceptions.ElementNotInteractableException, exceptions.NoSuchElementException, IndexError) as e:
+    except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
         pass
 
@@ -364,7 +391,10 @@ def print_report(time_taken):
     print("Total Time: ", res)
     for email in FINAL_REPORT.keys():
         points = FINAL_REPORT[email]
-        print("\tTotal points: ", points)
+        if points == "BLOCKED":
+            print("{} IS BLOCKED".format(email))
+            continue
+        print("\t{}Total points: {}".format(email, points))
         if points >= 6500:
             print("Time to cash in $$$")
 
@@ -375,8 +405,8 @@ if __name__ == '__main__':
     MOBILE_USERAGENT = "Mozilla/5.0 (Android 6.0.1; Mobile; rv:77.0) Gecko/77.0 Firefox/77.0"
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     #  the amount of searches per account (1 search = 5 pts)
-    NUM_WORDS_DESKTOP = 35 # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
-    NUM_WORDS_MOBILE = 25 # 20 searches for 100 Mobile pts; 5 extra
+    NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
+    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra
 
     try:
         assert path.isfile(GECKO_DRIVER)
@@ -390,18 +420,15 @@ if __name__ == '__main__':
     all_trending_topics = google_trends()
 
     START_TIME = time()
-    print("Starting Desktop")
-    start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
-    print("Finished Desktop")
-
-    wait_for(60, jitter=False)
-
     print("Starting Mobile\n")
     start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE)
     print("Finished Mobile")
 
-    print("Getting Points\n")
-    start(all_trending_topics, DESKTOP_USERAGENT, 0, find_points=True)
+    wait_for(60, jitter=False)
+
+    print("Starting Desktop")
+    start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
+    print("Finished Desktop")
     STOP_TIME = time()
 
     difference_in_time = STOP_TIME - START_TIME
