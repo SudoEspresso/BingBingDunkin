@@ -1,5 +1,5 @@
 from random import randint, choices, sample
-from time import sleep, time
+from time import sleep, time, gmtime, strftime
 from os import getcwd, path
 from urllib.parse import quote_plus
 import configparser
@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
-GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
+GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
 FINAL_REPORT = {}
 
 ASCII_ART = """
@@ -86,7 +86,7 @@ def google_trends() -> list:
     return all_trendin_phrases
 
 
-def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDesktop=False):
+def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDesktop=False, find_points=False):
     """
     Start will compile a dictionary from all credentials stored in credentials.ini. For each account
     a browser will be started with the provided user agent and NUM_WORDS will be used to randomly select
@@ -129,40 +129,42 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
         elem = driver.find_element_by_name('loginfmt')
         elem.clear()
         elem.send_keys(email)
+        wait_for(5, jitter=False)
         elem.send_keys(Keys.RETURN)
-        wait_for(4, jitter=False)
+        wait_for(10, jitter=False)
         elem1 = driver.find_element_by_name('passwd')
         elem1.clear()
         elem1.send_keys(str(password))
+        wait_for(5, jitter=False)
         elem1.send_keys(Keys.ENTER)
-        wait_for(9, jitter=False)
+        wait_for(10, jitter=False)
+        if not find_points:
+            #  Once logged in search using the random google trending phrases
+            for num, phrase in enumerate(words_list):
+                #  Select a endpoint to use (search/ has the highest probability)
+                endpoint = choices(all_enpoints, weights=distribution, k=1)[0]
+                url_base = 'https://www.bing.com/{}?q='.format(endpoint)
+                print('{0}. URL : {1}'.format(str(num + 1), url_base + quote_plus(phrase)))
+                #  Try the request until you get a response
+                while True:
+                    try:
+                        driver.get(url_base + quote_plus(phrase))
+                        if mimicDesktop and endpoint == 'search':  # Doesn't work for mobile
+                            #  Mimic human interaction by clicking on links on the page
+                            mimic_desktop_interaction(driver)
+                        break  # While
 
-        #  Once logged in search using the random google trending phrases
-        for num, phrase in enumerate(words_list):
-            #  Select a endpoint to use (search/ has the highest probability)
-            endpoint = choices(all_enpoints, weights=distribution, k=1)[0]
-            url_base = 'https://www.bing.com/{}?q='.format(endpoint)
-            print('{0}. URL : {1}'.format(str(num + 1), url_base + quote_plus(phrase)))
-            #  Try the request until you get a response
-            while True:
-                try:
-                    driver.get(url_base + quote_plus(phrase))
-                    if mimicDesktop and endpoint == 'search':  # Doesn't work for mobile
-                        #  Mimic human interaction by clicking on links on the page
-                        mimic_desktop_interaction(driver)
-                    break  # While
+                    except Exception as e1:
+                        print(e1)
+                        wait_for(1, jitter=True, min=2, max=10)
 
-                except Exception as e1:
-                    print(e1)
-                    wait_for(1, jitter=True, min=2, max=10)
-
-            wait_for(3, jitter=True, min=0, max=100)
-        if mimicDesktop:  # if Desktop
-            #  This condition hits when the desktop searches have finished
-            print("Starting Daily Set")
-            daily_set(driver)
-            print("Finished Daily Set")
-        else:  # if mobile
+                wait_for(3, jitter=True, min=0, max=60)
+            if mimicDesktop:  # if Desktop
+                #  This condition hits when the desktop searches have finished
+                print("Starting Daily Set")
+                daily_set(driver)
+                print("Finished Daily Set")
+        if find_points:  # if mobile
             #  This means that this account has finished collecting points
             find_account_points(email, driver)
 
@@ -214,6 +216,7 @@ def find_account_points(email: str, driver: webdriver.Firefox):
     :param driver: The web driver used to interact with the browser
     """
     driver.get("https://www.bing.com/")
+    wait_for(4, jitter=False)
     points = driver.find_element_by_id("id_rc")
     wait_for(4, jitter=False)
     points.click()
@@ -341,8 +344,8 @@ def daily_set(driver: webdriver.Firefox):
         options = poll.find_element_by_css_selector(".btOptions2.bt_pollOptions")
         choice = options.find_element_by_id("btoption0")
         choice.click()
-        wait_for(9, jitter=False)
         print("Daily set 3")
+        wait_for(9, jitter=False)
     except (exceptions.ElementNotInteractableException, exceptions.NoSuchElementException, IndexError) as e:
         #  Either the user interacted with the screen or the daily set is already done
         pass
@@ -354,9 +357,11 @@ def print_report(time_taken):
     :param time_taken: The amount of time taken to complete all searching
     """
     global FINAL_REPORT
-    print("\n\n\n")
     print("POINTS REPORT")
-    print("Total Time: {} seconds".format(time_taken))
+    ty_res = gmtime(time_taken)
+    res = strftime("%H:%M:%S", ty_res)
+
+    print("Total Time: ", res)
     for email in FINAL_REPORT.keys():
         points = FINAL_REPORT[email]
         print("\tTotal points: ", points)
@@ -370,8 +375,8 @@ if __name__ == '__main__':
     MOBILE_USERAGENT = "Mozilla/5.0 (Android 6.0.1; Mobile; rv:77.0) Gecko/77.0 Firefox/77.0"
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     #  the amount of searches per account (1 search = 5 pts)
-    NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
-    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra
+    NUM_WORDS_DESKTOP = 35 # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
+    NUM_WORDS_MOBILE = 25 # 20 searches for 100 Mobile pts; 5 extra
 
     try:
         assert path.isfile(GECKO_DRIVER)
@@ -394,6 +399,9 @@ if __name__ == '__main__':
     print("Starting Mobile\n")
     start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE)
     print("Finished Mobile")
+
+    print("Getting Points\n")
+    start(all_trending_topics, DESKTOP_USERAGENT, 0, find_points=True)
     STOP_TIME = time()
 
     difference_in_time = STOP_TIME - START_TIME
