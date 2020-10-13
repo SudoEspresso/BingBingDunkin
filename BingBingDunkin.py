@@ -14,7 +14,8 @@ all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
 GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
 FINAL_REPORT = {}
-
+GREEN = "\033[95m"
+END = "\033[0m"
 ASCII_ART = """
  ____  __  __ _   ___    ____  __  __ _   ___    ____  _  _  __ _  __ _  __  __ _   _  
 (  _ \(  )(  ( \ / __)  (  _ \(  )(  ( \ / __)  (    \/ )( \(  ( \(  / )(  )(  ( \ (/     ( (
@@ -123,7 +124,7 @@ def login(driver, email, password):
         FINAL_REPORT[email] = "BLOCKED"
         return True
     else:
-        print("Successful Login: {}".format(email))
+        print(GREEN + "Successful Login: {}".format(email) + END)
         return False
 
 
@@ -161,7 +162,7 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
             exit(1)
 
         password = accounts[email]
-        print("Account: ", email, password)
+        print(GREEN + "Account: ", email, password + END)
         isBlocked = login(driver, email, password)
 
         if isBlocked:
@@ -192,9 +193,9 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
             wait_for(3, jitter=True, min=0, max=60)
         if mimicDesktop:  # if Desktop
             #  This condition hits when the desktop searches have finished
-            print("Starting Daily Set")
+            print(GREEN + "Starting Daily Set" + END)
             daily_set(driver)
-            print("Finished Daily Set")
+            print(GREEN + "Finished Daily Set" + END)
             #  This means that this account has finished collecting points
             find_account_points(email, driver)
 
@@ -387,7 +388,8 @@ def print_report(time_taken):
     :param time_taken: The amount of time taken to complete all searching
     """
     global FINAL_REPORT
-    print("POINTS REPORT")
+    print("\n")
+    print(GREEN + "POINTS REPORT" + END)
     ty_res = gmtime(time_taken)
     res = strftime("%H:%M:%S", ty_res)
 
@@ -419,19 +421,19 @@ if __name__ == '__main__':
 
     print(ASCII_ART)
 
-    print("Google Trending Topics")
+    print(GREEN + "Google Trending Topics" + END)
     all_trending_topics = google_trends()
 
     START_TIME = time()
-    print("Starting Mobile\n")
+    print(GREEN + "Starting Mobile\n" + END)
     start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE)
-    print("Finished Mobile")
+    print(GREEN +"Finished Mobile" + END)
 
     wait_for(60, jitter=False)
 
-    print("Starting Desktop")
+    print(GREEN + "Starting Desktop" + END)
     start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
-    print("Finished Desktop")
+    print(GREEN + "Finished Desktop" + END)
     STOP_TIME = time()
 
     difference_in_time = STOP_TIME - START_TIME
