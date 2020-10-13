@@ -113,7 +113,10 @@ def login(driver, email, password):
     elem1.send_keys(Keys.ENTER)
     wait_for(5, jitter=False)
     #  Grabs the text after the login. Either blocked or asks to stay signed in
-    login_result = driver.find_element_by_class_name("text-title").text
+    try:
+        login_result = driver.find_element_by_class_name("text-title").text
+    except Exception as e:
+        pass
     if "Your account has been locked" in login_result:
         print("ACCOUNT BLOCKED: {} {}\n".format(email, password))
         global FINAL_REPORT
@@ -406,7 +409,7 @@ if __name__ == '__main__':
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     #  the amount of searches per account (1 search = 5 pts)
     NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
-    NUM_WORDS_MOBILE = 20  # 20 searches for 100 Mobile pts; 5 extra
+    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra
 
     try:
         assert path.isfile(GECKO_DRIVER)
