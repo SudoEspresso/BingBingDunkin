@@ -14,7 +14,7 @@ all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
 GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
 FINAL_REPORT = {}
-GREEN = "\033[95m"
+GREEN = "\033[32m"
 END = "\033[0m"
 ASCII_ART = """
  ____  __  __ _   ___    ____  __  __ _   ___    ____  _  _  __ _  __ _  __  __ _   _  
@@ -116,16 +116,18 @@ def login(driver, email, password):
     #  Grabs the text after the login. Either blocked or asks to stay signed in
     try:
         login_result = driver.find_element_by_class_name("text-title").text
+
+        if "Your account has been locked" in login_result:
+            print("ACCOUNT BLOCKED: {} {}\n".format(email, password))
+            global FINAL_REPORT
+            FINAL_REPORT[email] = "BLOCKED"
+            return True
+
     except Exception as e:
         pass
-    if "Your account has been locked" in login_result:
-        print("ACCOUNT BLOCKED: {} {}\n".format(email, password))
-        global FINAL_REPORT
-        FINAL_REPORT[email] = "BLOCKED"
-        return True
-    else:
-        print(GREEN + "Successful Login: {}".format(email) + END)
-        return False
+
+    print(GREEN + "Successful Login: {}".format(email) + END)
+    return False
 
 
 def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDesktop=False):
@@ -410,8 +412,8 @@ if __name__ == '__main__':
     MOBILE_USERAGENT = "Mozilla/5.0 (Android 6.0.1; Mobile; rv:77.0) Gecko/77.0 Firefox/77.0"
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     #  the amount of searches per account (1 search = 5 pts)
-    NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
-    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra
+    NUM_WORDS_DESKTOP = 1  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
+    NUM_WORDS_MOBILE = 1  # 20 searches for 100 Mobile pts; 5 extra
 
     try:
         assert path.isfile(GECKO_DRIVER)
