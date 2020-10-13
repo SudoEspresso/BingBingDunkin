@@ -12,9 +12,11 @@ from tqdm import tqdm
 
 all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
-GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
-FINAL_REPORT = {}
+GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
+INITIAL_POINTS = {}
+FINAL_POINTS = {}
 GREEN = "\033[32m"
+RED = "\033[91m"
 END = "\033[0m"
 ASCII_ART = """
  ____  __  __ _   ___    ____  __  __ _   ___    ____  _  _  __ _  __ _  __  __ _   _  
@@ -55,7 +57,7 @@ def google_trends() -> list:
         try:
             #  Returns about top 20 trending words
             list_of_trending = pytrend.trending_searches(pn='united_states')[0].to_list()
-            print(list_of_trending)
+            #print(list_of_trending, "\n")
             break
         except Exception as e:
             print(e)
@@ -85,7 +87,7 @@ def google_trends() -> list:
                 break
             except Timeout as e:
                 wait_for(2, jitter=False)
-    print("\n\n")
+    print("\n")
     #  A list of all trend words as well as their related searches
     return all_trendin_phrases
 
@@ -112,22 +114,24 @@ def login(driver, email, password):
     elem1.send_keys(str(password))
     wait_for(5, jitter=False)
     elem1.send_keys(Keys.ENTER)
-    wait_for(5, jitter=False)
+    wait_for(9, jitter=False)
     #  Grabs the text after the login. Either blocked or asks to stay signed in
-    try:
-        login_result = driver.find_element_by_class_name("text-title").text
+    while True:
+        try:
+            login_result = driver.find_element_by_class_name("text-title").text
+            break
+        except exceptions.NoSuchElementException:
+            wait_for(1, jitter=False)
 
-        if "Your account has been locked" in login_result:
-            print("ACCOUNT BLOCKED: {} {}\n".format(email, password))
-            global FINAL_REPORT
-            FINAL_REPORT[email] = "BLOCKED"
-            return True
-
-    except Exception as e:
-        pass
-
-    print(GREEN + "Successful Login: {}".format(email) + END)
-    return False
+    if "Your account has been locked" in login_result or "Enter your phone number" in login_result:
+        print(RED + "ACCOUNT BLOCKED\n" + END)
+        global FINAL_POINTS
+        FINAL_POINTS[email] = "BLOCKED"
+        INITIAL_POINTS[email] = "BLOCKED"
+        return True
+    else:
+        print(GREEN + "Successful Login" + END)
+        return False
 
 
 def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDesktop=False):
@@ -148,6 +152,7 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
     #  Create a dict of email:pass
     for key in config['DEFAULT']:
         if 'email' in key:
+            #  accounts[email] = password
             accounts[config['DEFAULT'][key]] = config['DEFAULT']['password' + key.split("email")[1]]
 
     #  Iterates over each account credentials
@@ -164,12 +169,17 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
             exit(1)
 
         password = accounts[email]
-        print(GREEN + "Account: ", email, password + END)
+        print("Account: ", email, password)
         isBlocked = login(driver, email, password)
 
         if isBlocked:
             driver.quit()
             continue  # Go to next credentials, skip searches
+
+        if not mimicDesktop:  # if Mobile
+            #  Grab the initial amount of point the account has
+            points = find_account_points(driver)
+            INITIAL_POINTS[email] = points
 
         words_list = sample(all_trending_topics, min(NUM_WORDS, len(all_trending_topics)))
 
@@ -195,11 +205,15 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
             wait_for(3, jitter=True, min=0, max=60)
         if mimicDesktop:  # if Desktop
             #  This condition hits when the desktop searches have finished
-            print(GREEN + "Starting Daily Set" + END)
+            print("\nStarting Daily Set")
             daily_set(driver)
-            print(GREEN + "Finished Daily Set" + END)
+            print("Finished Daily Set")
             #  This means that this account has finished collecting points
-            find_account_points(email, driver)
+            #  Grab the final amount of points the account has
+            points = find_account_points(driver)
+            global FINAL_POINTS
+            #  Modify the global var and add the account with its pts
+            FINAL_POINTS[email] = points
 
         driver.quit()
         print()
@@ -242,27 +256,19 @@ def mimic_desktop_interaction(driver: webdriver.Firefox):
             driver.back()
 
 
-def find_account_points(email: str, driver: webdriver.Firefox):
+def find_account_points(driver: webdriver.Firefox) -> int:
     """
-    Will collect and store the account points corresponding to the given email
-    :param email: The email address
+    Will collect and store the account points using the provided driver
     :param driver: The web driver used to interact with the browser
     """
-    driver.get("https://www.bing.com/")
-    wait_for(4, jitter=False)
-    points = driver.find_element_by_id("id_rc")
-    wait_for(4, jitter=False)
-    points.click()
-    wait_for(4, jitter=False)
-    points.click()
-    wait_for(4, jitter=False)
-    points.click()
-    wait_for(8, jitter=True, min=5, max=13)
-    points_num = int(points.text)
-
-    global FINAL_REPORT
-    #  Modify the global var and add the account with its pts
-    FINAL_REPORT[email] = points_num
+    try:
+        driver.get("https://account.microsoft.com/rewards/")
+        wait_for(13, jitter=False)
+        body = driver.find_element_by_tag_name("mee-rewards-user-status-balance")
+        points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
+        return points
+    except Exception:
+        wait_for(1, jitter=False)
 
 
 def daily_set(driver: webdriver.Firefox):
@@ -389,21 +395,24 @@ def print_report(time_taken):
     Once everything is complete the resulting points will be output
     :param time_taken: The amount of time taken to complete all searching
     """
-    global FINAL_REPORT
-    print("\n")
-    print(GREEN + "POINTS REPORT" + END)
+    global FINAL_POINTS
+    global INITIAL_POINTS
+    print("POINTS REPORT")
     ty_res = gmtime(time_taken)
     res = strftime("%H:%M:%S", ty_res)
 
     print("Total Time: ", res)
-    for email in FINAL_REPORT.keys():
-        points = FINAL_REPORT[email]
+    for email in FINAL_POINTS.keys():
+        points = FINAL_POINTS[email]
         if points == "BLOCKED":
-            print("{} IS BLOCKED".format(email))
+            print(RED + "\t{} IS BLOCKED".format(email) + END)
+            print()
             continue
-        print("\t{}Total points: {}".format(email, points))
+        print("\t{} Total points:  {}".format(email, points))
+        print("\t{} Earned points: {}".format(email, FINAL_POINTS[email] - INITIAL_POINTS[email]))
         if points >= 6500:
-            print("Time to cash in $$$")
+            print(GREEN + "\tTime to cash in $$$" + END)
+        print()
 
 
 if __name__ == '__main__':
@@ -423,19 +432,19 @@ if __name__ == '__main__':
 
     print(ASCII_ART)
 
-    print(GREEN + "Google Trending Topics" + END)
+    print("Google Trending Topics")
     all_trending_topics = google_trends()
 
     START_TIME = time()
-    print(GREEN + "Starting Mobile\n" + END)
-    start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE)
-    print(GREEN +"Finished Mobile" + END)
+    print("Starting Mobile\n")
+    start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE, mimicDesktop=False)
+    print("Finished Mobile")
 
     wait_for(60, jitter=False)
 
-    print(GREEN + "Starting Desktop" + END)
+    print("Starting Desktop\n")
     start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
-    print(GREEN + "Finished Desktop" + END)
+    print("Finished Desktop")
     STOP_TIME = time()
 
     difference_in_time = STOP_TIME - START_TIME
