@@ -12,9 +12,10 @@ from tqdm import tqdm
 
 all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
-GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
+GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
 INITIAL_POINTS = {}
 FINAL_POINTS = {}
+#  Colors
 GREEN = "\033[32m"
 RED = "\033[91m"
 END = "\033[0m"
@@ -86,7 +87,7 @@ def google_trends() -> list:
                 break
             except Timeout as e:
                 wait_for(2, jitter=False)
-    print("\n")
+    print("\r")  # To prevent the loading bar from going on two lines
     #  A list of all trend words as well as their related searches
     return all_trendin_phrases
 
@@ -101,7 +102,12 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
     :return: True if successful False if account is blocked
     """
     #  Login
-    driver.get("https://login.live.com/")
+    while True:
+        try:
+            driver.get("https://login.live.com/")
+            break
+        except Exception:
+            wait_for(1, jitter=False)
     wait_for(5, jitter=False)
     elem = driver.find_element_by_name('loginfmt')
     elem.clear()
@@ -124,13 +130,13 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
             #  .text-title is always there but sometimes doesn't load all the way
             wait_for(1, jitter=False)
 
-    if "Your account has been locked" in login_result or "Enter your phone number" in login_result:
+    if "Stay signed in?" not in login_result:  # Blocked
         print(RED + "ACCOUNT BLOCKED\n" + END)
         global FINAL_POINTS
         FINAL_POINTS[email] = "BLOCKED"
         INITIAL_POINTS[email] = "BLOCKED"
         return False
-    else:
+    else:  # Not Blocked
         print(GREEN + "Successful Login" + END)
         return True
 
@@ -273,7 +279,11 @@ def find_account_points(driver: webdriver.Firefox) -> int:
         wait_for(1, jitter=False)
 
 
-def lightspeed_quiz(driver):
+def lightspeed_quiz(driver: webdriver.Firefox):
+    """
+    Completes the "lightning speed" quiz
+    :param driver: The web driver used to interact with the browser
+    """
     # get the number of points
     quiz = driver.find_element_by_id("QuizContainerWrapper")
     trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
@@ -282,12 +292,11 @@ def lightspeed_quiz(driver):
     overlay_panel = button_overlay.find_element_by_id("overlayPanel")
     trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
     welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
-    container =  welcome_container.find_element_by_class_name("rqWcHeader")
+    container = welcome_container.find_element_by_class_name("rqWcHeader")
     points = container.find_element_by_class_name("rqWcpoints")
     points = points.text
     points = points.split(" ")[0]
     num_questions = int(points) / 10
-
 
     num_questions = int(num_questions)
     quiz = driver.find_element_by_id("QuizContainerWrapper")
@@ -299,9 +308,11 @@ def lightspeed_quiz(driver):
     welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
     button = welcome_container.find_element_by_id("rqStartQuiz")
     button.click()
-    wait_for(10,jitter=False)
+    wait_for(7, jitter=True, min=0, max=2)
+    #  Iterate over each question
     for question in range(0, num_questions):
-        for i in range(0,4):
+        #  Iterate over each answer until correct
+        for i in range(0, 4):
             button_overlay_panel = driver.find_element_by_id("overlayPanel")
             trivia_overlay_data = button_overlay_panel.find_element_by_class_name("TriviaOverlayData")
             current_question_container = trivia_overlay_data.find_element_by_id("currentQuestionContainer")
@@ -309,9 +320,14 @@ def lightspeed_quiz(driver):
             answers = text.find_elements_by_class_name("rq_button")
             answer = answers[i]
             answer.click()
-            wait_for(10,jitter=True)
+            wait_for(5, jitter=True, min=0, max=2)
 
-def thisorthat_quiz(driver):
+
+def thisorthat_quiz(driver: webdriver.Firefox):
+    """
+    Completes the "This Or That?" quiz
+    :param driver: The web driver used to interact with the browser
+    """
     # get the number of points
     quiz = driver.find_element_by_id("QuizContainerWrapper")
     trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
@@ -336,7 +352,7 @@ def thisorthat_quiz(driver):
     welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
     button = welcome_container.find_element_by_id("rqStartQuiz")
     button.click()
-    wait_for(10, jitter=False)
+    wait_for(7, jitter=True, min=0, max=2)
 
     for _ in range(0, num_questions):
         button_overlay_panel = driver.find_element_by_id("overlayPanel")
@@ -346,9 +362,14 @@ def thisorthat_quiz(driver):
         options = question.find_element_by_class_name("btOptions")
         option = options.find_element_by_id("rqAnswerOption0")
         option.click()
-        wait_for(10,jitter=True)
+        wait_for(7, jitter=True, min=0, max=2)
 
-def supersonic_quiz(driver):
+
+def supersonic_quiz(driver: webdriver.Firefox):
+    """
+    Completes the "super-sonic" quiz
+    :param driver: The web driver used to interact with the browser
+    """
     # get the number of points
     quiz = driver.find_element_by_id("QuizContainerWrapper")
     trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
@@ -373,7 +394,7 @@ def supersonic_quiz(driver):
     welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
     button = welcome_container.find_element_by_id("rqStartQuiz")
     button.click()
-    wait_for(10, jitter=False)
+    wait_for(7, jitter=True, min=0, max=2)
 
     for _ in range(0, num_questions):
         for i in range(0, 8):
@@ -392,16 +413,14 @@ def supersonic_quiz(driver):
             options = buttons.find_elements_by_class_name("slide")
             option = options[i]
             option.click()
-            wait_for(10, jitter=True)
-
-
+            wait_for(7, jitter=True, min=0, max=2)
 
 
 def daily_set(driver: webdriver.Firefox):
     """
     The daily set is composed of 3 items, the first being a simple click search, the
-    second being a 10 question quiz and the last being a poll. All three of these tasks
-    are automated when completed multiple days in a row Microsoft Rewards provides bonus pts.
+    second being a quiz and the last being a poll. All three of these tasks are automated
+    when completed multiple days in a row Microsoft Rewards provides bonus pts.
     :param driver: The web driver used to interact with the browser
     """
     try:
@@ -453,6 +472,7 @@ def daily_set(driver: webdriver.Firefox):
         driver.switch_to.default_content()
         wait_for(9, jitter=False)
 
+        #  Grabs the name of the quiz (1 of 4 options)
         quiz = driver.find_element_by_id("QuizContainerWrapper")
         trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
         wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
@@ -470,7 +490,7 @@ def daily_set(driver: webdriver.Firefox):
             thisorthat_quiz(driver)
         elif title.text == "Supersonic quiz":
             supersonic_quiz(driver)
-        else:
+        else:  # Normal quiz
             for i in range(0, 10):
                 question = "QuestionPane" + str(i)
                 answer = "AnswerPane" + str(i)
@@ -508,7 +528,7 @@ def daily_set(driver: webdriver.Firefox):
                 break
             except Exception:
                 wait_for(1, jitter=False)
-        wait_for(9, jitter=False)
+        wait_for(5, jitter=True, min=0, max=2)
         points = driver.find_element_by_id("id_rc")
         points.click()
         wait_for(9, jitter=False)
@@ -543,16 +563,25 @@ def print_report(time_taken: int):
     """
     global FINAL_POINTS
     global INITIAL_POINTS
-    print("POINTS REPORT")
+    REPORT_ASCII = """
+ ____  ____  ____   __  ____  ____ 
+(  _ \(  __)(  _ \ /  \(  _ \(_  _)
+ )   / ) _)  ) __/(  O ))   /  )(  
+(__\_)(____)(__)   \__/(__\_) (__)
+    """
+    print(REPORT_ASCII)
     ty_res = gmtime(time_taken)
     res = strftime("%H:%M:%S", ty_res)
 
     print("Total Time: ", res)
     for email in FINAL_POINTS.keys():
-        points = FINAL_POINTS[email]
+        points = INITIAL_POINTS[email]
         if points == "BLOCKED":
             print(RED + "\t{} IS BLOCKED".format(email) + END)
             print()
+            continue
+        if FINAL_POINTS[email] is None or INITIAL_POINTS[email] is None:
+            print(RED + "\tERROR Collecting {} Points".format(email) + END)
             continue
         print("\t{} Total points:  {}".format(email, points))
         print("\t{} Earned points: {}".format(" " * len(email), FINAL_POINTS[email] - INITIAL_POINTS[email]))
