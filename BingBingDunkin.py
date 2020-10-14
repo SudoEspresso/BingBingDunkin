@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
-GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
+GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
 INITIAL_POINTS = {}
 FINAL_POINTS = {}
 GREEN = "\033[32m"
@@ -271,6 +271,130 @@ def find_account_points(driver: webdriver.Firefox) -> int:
         wait_for(1, jitter=False)
 
 
+def lightspeed_quiz(driver):
+    # get the number of points
+    quiz = driver.find_element_by_id("QuizContainerWrapper")
+    trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
+    wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+    button_overlay = wrapper.find_element_by_id("btOverlay")
+    overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+    trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+    welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
+    container =  welcome_container.find_element_by_class_name("rqWcHeader")
+    points = container.find_element_by_class_name("rqWcpoints")
+    points = points.text
+    points = points.split(" ")[0]
+    num_questions = int(points) / 10
+
+
+    num_questions = int(num_questions)
+    quiz = driver.find_element_by_id("QuizContainerWrapper")
+    trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
+    wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+    button_overlay = wrapper.find_element_by_id("btOverlay")
+    overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+    trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+    welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
+    button = welcome_container.find_element_by_id("rqStartQuiz")
+    button.click()
+    wait_for(10,jitter=False)
+    for question in range(0, num_questions):
+        for i in range(0,4):
+            button_overlay_panel = driver.find_element_by_id("overlayPanel")
+            trivia_overlay_data = button_overlay_panel.find_element_by_class_name("TriviaOverlayData")
+            current_question_container = trivia_overlay_data.find_element_by_id("currentQuestionContainer")
+            text = current_question_container.find_element_by_class_name("textBasedMultiChoice")
+            answers = text.find_elements_by_class_name("rq_button")
+            answer = answers[i]
+            answer.click()
+            wait_for(10,jitter=True)
+
+def thisorthat_quiz(driver):
+    # get the number of points
+    quiz = driver.find_element_by_id("QuizContainerWrapper")
+    trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
+    wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+    button_overlay = wrapper.find_element_by_id("btOverlay")
+    overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+    trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+    welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
+    container = welcome_container.find_element_by_class_name("rqWcHeader")
+    points = container.find_element_by_class_name("rqWcpoints")
+    points = points.text
+    points = points.split(" ")[0]
+    num_questions = int(points) / 5
+
+    num_questions = int(num_questions)
+    quiz = driver.find_element_by_id("QuizContainerWrapper")
+    trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
+    wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+    button_overlay = wrapper.find_element_by_id("btOverlay")
+    overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+    trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+    welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
+    button = welcome_container.find_element_by_id("rqStartQuiz")
+    button.click()
+    wait_for(10, jitter=False)
+
+    for _ in range(0, num_questions):
+        button_overlay_panel = driver.find_element_by_id("overlayPanel")
+        trivia_overlay_data = button_overlay_panel.find_element_by_class_name("TriviaOverlayData")
+        current_question_container = trivia_overlay_data.find_element_by_id("currentQuestionContainer")
+        question = current_question_container.find_element_by_class_name("rqQuestion")
+        options = question.find_element_by_class_name("btOptions")
+        option = options.find_element_by_id("rqAnswerOption0")
+        option.click()
+        wait_for(10,jitter=True)
+
+def supersonic_quiz(driver):
+    # get the number of points
+    quiz = driver.find_element_by_id("QuizContainerWrapper")
+    trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
+    wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+    button_overlay = wrapper.find_element_by_id("btOverlay")
+    overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+    trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+    welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
+    container = welcome_container.find_element_by_class_name("rqWcHeader")
+    points = container.find_element_by_class_name("rqWcpoints")
+    points = points.text
+    points = points.split(" ")[0]
+    num_questions = int(points) / 10
+
+    num_questions = int(num_questions)
+    quiz = driver.find_element_by_id("QuizContainerWrapper")
+    trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
+    wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+    button_overlay = wrapper.find_element_by_id("btOverlay")
+    overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+    trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+    welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
+    button = welcome_container.find_element_by_id("rqStartQuiz")
+    button.click()
+    wait_for(10, jitter=False)
+
+    for _ in range(0, num_questions):
+        for i in range(0, 8):
+            quiz = driver.find_element_by_id("QuizContainerWrapper")
+            trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
+            wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+            button_overlay = wrapper.find_element_by_id("btOverlay")
+            overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+            trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+            question_container = trivia_data.find_element_by_id("currentQuestionContainer")
+            all_options = question_container.find_element_by_class_name("b_slideexp")
+            overlay = all_options.find_element_by_class_name("b_overlay")
+            viewport = overlay.find_element_by_css_selector(".b_viewport.scrollbar")
+            slidebar = viewport.find_element_by_class_name("b_slidebar")
+            buttons = slidebar.find_element_by_class_name("btOptions")
+            options = buttons.find_elements_by_class_name("slide")
+            option = options[i]
+            option.click()
+            wait_for(10, jitter=True)
+
+
+
+
 def daily_set(driver: webdriver.Firefox):
     """
     The daily set is composed of 3 items, the first being a simple click search, the
@@ -316,36 +440,56 @@ def daily_set(driver: webdriver.Firefox):
         wait_for(9, jitter=False)
         points = driver.find_element_by_id("id_rc")
         points.click()
-        wait_for(9, jitter=False)
+        wait_for(9, jitter=True)
         driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
         elem = driver.find_element_by_xpath("/html/body")
         flyout = elem.find_element_by_id("modern-flyout")
+        wait_for(9, jitter=False)
         quiz = flyout.find_elements_by_class_name("promo_cont")[1]
         wait_for(9, jitter=False)
         quiz.click()
         driver.switch_to.default_content()
         wait_for(9, jitter=False)
-        for i in range(0, 10):
-            question = "QuestionPane" + str(i)
-            answer = "AnswerPane" + str(i)
-            content = driver.find_element_by_id("b_content")
-            olist = content.find_element_by_id("b_results")
-            canvas = olist.find_element_by_id("wkCanvas")
-            qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
-            q1 = qa.find_element_by_id(question)
-            a = q1.find_element_by_class_name("wk_Circle")
-            a.click()
-            wait_for(9, jitter=False)
 
-            content = driver.find_element_by_id("b_content")
-            olist = content.find_element_by_id("b_results")
-            canvas = olist.find_element_by_id("wkCanvas")
-            qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
-            a1 = qa.find_element_by_id(answer)
-            next = a1.find_element_by_class_name("wk_buttons")
-            button = next.find_element_by_class_name("wk_button")
-            button.click()
-            wait_for(9, jitter=False)
+        quiz = driver.find_element_by_id("QuizContainerWrapper")
+        trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
+        wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+        button_overlay = wrapper.find_element_by_id("btOverlay")
+        overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+        trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+        welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
+        title_class = welcome_container.find_element_by_class_name("rqTitle")
+        title = title_class.find_element_by_class_name("b_topTitle")
+        print(title.text)
+
+        if title.text == "Lightspeed quiz":
+            lightspeed_quiz(driver)
+        elif title.text == "This or That?":
+            thisorthat_quiz(driver)
+        elif title.text == "Supersonic quiz":
+            supersonic_quiz(driver)
+        else:
+            for i in range(0, 10):
+                question = "QuestionPane" + str(i)
+                answer = "AnswerPane" + str(i)
+                content = driver.find_element_by_id("b_content")
+                olist = content.find_element_by_id("b_results")
+                canvas = olist.find_element_by_id("wkCanvas")
+                qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
+                q1 = qa.find_element_by_id(question)
+                a = q1.find_element_by_class_name("wk_Circle")
+                a.click()
+                wait_for(9, jitter=False)
+
+                content = driver.find_element_by_id("b_content")
+                olist = content.find_element_by_id("b_results")
+                canvas = olist.find_element_by_id("wkCanvas")
+                qa = canvas.find_element_by_id("ListOfQuestionAndAnswerPanes")
+                a1 = qa.find_element_by_id(answer)
+                next = a1.find_element_by_class_name("wk_buttons")
+                button = next.find_element_by_class_name("wk_button")
+                button.click()
+                wait_for(9, jitter=False)
         print("Daily set 2")
     except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
