@@ -57,7 +57,6 @@ def google_trends() -> list:
         try:
             #  Returns about top 20 trending words
             list_of_trending = pytrend.trending_searches(pn='united_states')[0].to_list()
-            #print(list_of_trending, "\n")
             break
         except Exception as e:
             print(e)
@@ -92,13 +91,14 @@ def google_trends() -> list:
     return all_trendin_phrases
 
 
-def login(driver, email, password):
+def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
     """
-
-    :param driver:
-    :param email:
-    :param password:
-    :return:
+    Logs the driver into Bing.com and determines if there was a sucessful login
+    of if the account is blocked by Microsoft
+    :param driver: The web driver used to interact with the browser
+    :param email: The email address to be logged in
+    :param password: The password to be logged in
+    :return: True if successful False if account is blocked
     """
     #  Login
     driver.get("https://login.live.com/")
@@ -121,6 +121,7 @@ def login(driver, email, password):
             login_result = driver.find_element_by_class_name("text-title").text
             break
         except exceptions.NoSuchElementException:
+            #  .text-title is always there but sometimes doesn't load all the way
             wait_for(1, jitter=False)
 
     if "Your account has been locked" in login_result or "Enter your phone number" in login_result:
@@ -128,10 +129,10 @@ def login(driver, email, password):
         global FINAL_POINTS
         FINAL_POINTS[email] = "BLOCKED"
         INITIAL_POINTS[email] = "BLOCKED"
-        return True
+        return False
     else:
         print(GREEN + "Successful Login" + END)
-        return False
+        return True
 
 
 def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDesktop=False):
@@ -139,12 +140,11 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
     Start will compile a dictionary from all credentials stored in credentials.ini. For each account
     a browser will be started with the provided user agent and NUM_WORDS will be used to randomly select
     an amount of phrases from all_trending_topics.
-    :param NUM_WORDS: The number of search phrases to randomly select from the google trending searches
-    :param mimicDesktop: if True will mimic user interaction by clicking on results (only for desktop)
     :param all_trending_topics: A list of strings which have search phrases
     :param user_agent: String which represents the browser
+    :param NUM_WORDS: The number of search phrases to randomly select from the google trending searches
+    :param mimicDesktop: if True will mimic user interaction by clicking on results (only for desktop)
     """
-
     #  Creates a parser for the credentials
     config = configparser.ConfigParser()
     config.read("credentials.ini")
@@ -160,7 +160,8 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
         #  Set up the driver profile
         profile = webdriver.FirefoxProfile()
         profile.set_preference("general.useragent.override", user_agent)  # Sets user agent
-        profile.set_preference("dom.disable_beforeunload", True)  # Disables firefox popups
+        profile.set_preference("dom.disable_beforeunload", True)  # Disables "data you have entered may not be saved" popup
+        profile.set_preference("dom.webnotifications.enabled", False)  # Disables "Asking for location" popup
         try:
             driver = webdriver.Firefox(firefox_profile=profile, executable_path=getcwd() + "/{}".format(GECKO_DRIVER))
             driver.set_page_load_timeout(15)  # Sets a timeout at 15 seconds
@@ -170,9 +171,10 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
 
         password = accounts[email]
         print("Account: ", email, password)
-        isBlocked = login(driver, email, password)
+        #  Logs in and returns a boolean if successful or not
+        isSuccessful = login(driver, email, password)
 
-        if isBlocked:
+        if not isSuccessful:
             driver.quit()
             continue  # Go to next credentials, skip searches
 
@@ -534,10 +536,10 @@ def daily_set(driver: webdriver.Firefox):
         pass
 
 
-def print_report(time_taken):
+def print_report(time_taken: int):
     """
     Once everything is complete the resulting points will be output
-    :param time_taken: The amount of time taken to complete all searching
+    :param time_taken: The amount of time taken to complete all searching (in seconds)
     """
     global FINAL_POINTS
     global INITIAL_POINTS
@@ -553,7 +555,7 @@ def print_report(time_taken):
             print()
             continue
         print("\t{} Total points:  {}".format(email, points))
-        print("\t{} Earned points: {}".format(email, FINAL_POINTS[email] - INITIAL_POINTS[email]))
+        print("\t{} Earned points: {}".format(" " * len(email), FINAL_POINTS[email] - INITIAL_POINTS[email]))
         if points >= 6500:
             print(GREEN + "\tTime to cash in $$$" + END)
         print()
@@ -588,7 +590,7 @@ if __name__ == '__main__':
 
     print("Starting Desktop\n")
     start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
-    print("Finished Desktop")
+    print("Finished Desktop\n\n")
     STOP_TIME = time()
 
     difference_in_time = STOP_TIME - START_TIME
