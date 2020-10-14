@@ -121,6 +121,7 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
             login_result = driver.find_element_by_class_name("text-title").text
             break
         except exceptions.NoSuchElementException:
+            #  .text-title is always there but sometimes doesn't load all the way
             wait_for(1, jitter=False)
 
     if "Your account has been locked" in login_result or "Enter your phone number" in login_result:
@@ -139,12 +140,11 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
     Start will compile a dictionary from all credentials stored in credentials.ini. For each account
     a browser will be started with the provided user agent and NUM_WORDS will be used to randomly select
     an amount of phrases from all_trending_topics.
-    :param NUM_WORDS: The number of search phrases to randomly select from the google trending searches
-    :param mimicDesktop: if True will mimic user interaction by clicking on results (only for desktop)
     :param all_trending_topics: A list of strings which have search phrases
     :param user_agent: String which represents the browser
+    :param NUM_WORDS: The number of search phrases to randomly select from the google trending searches
+    :param mimicDesktop: if True will mimic user interaction by clicking on results (only for desktop)
     """
-
     #  Creates a parser for the credentials
     config = configparser.ConfigParser()
     config.read("credentials.ini")
@@ -171,6 +171,7 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
 
         password = accounts[email]
         print("Account: ", email, password)
+        #  Logs in and returns a boolean if successful or not
         isSuccessful = login(driver, email, password)
 
         if not isSuccessful:
