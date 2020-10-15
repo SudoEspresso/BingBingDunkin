@@ -258,7 +258,8 @@ def mimic_desktop_interaction(driver: webdriver.Firefox):
             returned_links[site].click()
         #  The DOM is different sometimes clicking the link will error
         except exceptions.StaleElementReferenceException:
-            driver.get(site.split("#")[0])
+            driver.get(site.split("#")[0])  # removes the DOM part from the URL
+
         wait_for(sec=1, jitter=True, min=3, max=8)
         while "bing.com" not in driver.current_url:
             driver.back()
@@ -269,14 +270,18 @@ def find_account_points(driver: webdriver.Firefox) -> int:
     Will collect and store the account points using the provided driver
     :param driver: The web driver used to interact with the browser
     """
-    try:
-        driver.get("https://account.microsoft.com/rewards/")
-        wait_for(13, jitter=False)
-        body = driver.find_element_by_tag_name("mee-rewards-user-status-balance")
-        points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
-        return points
-    except Exception:
-        wait_for(1, jitter=False)
+    points = None
+    wait = 20
+    while points is None:  # If the page doesn't load it will set points=None
+        try:
+            driver.get("https://account.microsoft.com/rewards/")
+            wait_for(wait, jitter=False)
+            body = driver.find_element_by_tag_name("mee-rewards-user-status-balance")
+            points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
+            wait += 5
+        except Exception:
+            wait_for(1, jitter=False)
+    return points
 
 
 def lightspeed_quiz(driver: webdriver.Firefox):
@@ -563,13 +568,12 @@ def print_report(time_taken: int):
     """
     global FINAL_POINTS
     global INITIAL_POINTS
-    REPORT_ASCII = """
+    print("""
  ____  ____  ____   __  ____  ____ 
 (  _ \(  __)(  _ \ /  \(  _ \(_  _)
  )   / ) _)  ) __/(  O ))   /  )(  
 (__\_)(____)(__)   \__/(__\_) (__)
-    """
-    print(REPORT_ASCII)
+""")
     ty_res = gmtime(time_taken)
     res = strftime("%H:%M:%S", ty_res)
 
@@ -581,7 +585,7 @@ def print_report(time_taken: int):
             print()
             continue
         if FINAL_POINTS[email] is None or INITIAL_POINTS[email] is None:
-            print(RED + "\tERROR Collecting {} Points".format(email) + END)
+            print(RED + "\tERROR Collecting {} Points".format(email) + END + "\n")
             continue
         print("\t{} Total points:  {}".format(email, points))
         print("\t{} Earned points: {}".format(" " * len(email), FINAL_POINTS[email] - INITIAL_POINTS[email]))
@@ -611,15 +615,24 @@ if __name__ == '__main__':
     all_trending_topics = google_trends()
 
     START_TIME = time()
-    print("Starting Mobile\n")
+    print("""
+ _  _   __  ____  __  __    ____ 
+( \/ ) /  \(  _ \(  )(  )  (  __)
+/ \/ \(  O )) _ ( )( / (_/\ ) _) 
+\_)(_/ \__/(____/(__)\____/(____)
+
+\n""")
     start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE, mimicDesktop=False)
-    print("Finished Mobile")
 
     wait_for(60, jitter=False)
 
-    print("Starting Desktop\n")
+    print("""
+ ____  ____  ____  __ _  ____  __  ____ 
+(    \(  __)/ ___)(  / )(_  _)/  \(  _ \\
+ ) D ( ) _) \___ \ )  (   )( (  O )) __/
+(____/(____)(____/(__\_) (__) \__/(__)  
+\n""")
     start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
-    print("Finished Desktop\n\n")
     STOP_TIME = time()
 
     difference_in_time = STOP_TIME - START_TIME
