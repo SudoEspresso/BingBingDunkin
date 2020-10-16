@@ -578,7 +578,7 @@ def print_report(time_taken: int):
 
     print("Total Time: ", res)
     for email in FINAL_POINTS.keys():
-        points = INITIAL_POINTS[email]
+        points = FINAL_POINTS[email]
         if points == "BLOCKED":
             print(RED + "\t{} IS BLOCKED".format(email) + END)
             print()
