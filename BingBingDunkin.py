@@ -101,7 +101,6 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
     :param password: The password to be logged in
     :return: True if successful False if account is blocked
     """
-    #  Login
     while True:
         try:
             driver.get("https://login.live.com/")
@@ -196,7 +195,7 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
             #  Select a endpoint to use (search/ has the highest probability)
             endpoint = choices(all_enpoints, weights=distribution, k=1)[0]
             url_base = 'https://www.bing.com/{}?q='.format(endpoint)
-            print('{0}. URL : {1}'.format(str(num + 1), url_base + quote_plus(phrase)))
+            print('{:4s}. URL : {}'.format(str(num + 1), url_base + quote_plus(phrase)))
             #  Try the request until you get a response
             while True:
                 try:
