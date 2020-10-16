@@ -132,6 +132,7 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
     if "Stay signed in?" not in login_result:  # Blocked
         print(RED + "ACCOUNT BLOCKED\n" + END)
         global FINAL_POINTS
+        global INITIAL_POINTS
         FINAL_POINTS[email] = "BLOCKED"
         INITIAL_POINTS[email] = "BLOCKED"
         return False
@@ -186,6 +187,7 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
         if not mimicDesktop:  # if Mobile
             #  Grab the initial amount of point the account has
             points = find_account_points(driver)
+            global INITIAL_POINTS
             INITIAL_POINTS[email] = points
 
         words_list = sample(all_trending_topics, min(NUM_WORDS, len(all_trending_topics)))
