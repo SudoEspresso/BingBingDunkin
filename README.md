@@ -11,7 +11,17 @@ BingBingDunkin' is a program which automates getting search points for multiple 
   - Once downloaded extract the binary and inside `BingBingDunkin.py` set the full path to the binary
 
 - Modify credentials.ini to have the emails and passwords for each account
-  - Make sure to follow the naming scheme for each set of credentials Ex) `email1= password1= ... email21= password21=`
+  - Make sure to follow the naming scheme for each set of credentials 
+  
+  ```
+  email1=
+  password1= 
+  email2=
+  password2= 
+  ...
+  email11=
+  password11=
+  ```
   
 - Run it!
   - `python3 BingBingDunkin.py`
