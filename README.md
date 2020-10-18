@@ -1,5 +1,5 @@
 # BingBingDunkin
-BingBingDunkin' is a program which automates getting search points for multiple accounts.
+BingBingDunkin' automates searching using Bing as well as the daily quizes.
 
 # Usage
 `git clone https://github.com/SudoEspresso/BingBingDunkin.git`
