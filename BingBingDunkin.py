@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
-GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
+GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
 INITIAL_POINTS = {}
 FINAL_POINTS = {}
 #  Colors
@@ -111,15 +111,15 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
     elem = driver.find_element_by_name('loginfmt')
     elem.clear()
     elem.send_keys(email)
-    wait_for(5, jitter=False)
+    wait_for(1, jitter=False)
     elem.send_keys(Keys.RETURN)
-    wait_for(10, jitter=False)
+    wait_for(5, jitter=False)
     elem1 = driver.find_element_by_name('passwd')
     elem1.clear()
     elem1.send_keys(str(password))
-    wait_for(5, jitter=False)
+    wait_for(1, jitter=False)
     elem1.send_keys(Keys.ENTER)
-    wait_for(9, jitter=False)
+    wait_for(5, jitter=False)
     #  Grabs the text after the login. Either blocked or asks to stay signed in
     while True:
         try:
@@ -272,12 +272,13 @@ def find_account_points(driver: webdriver.Firefox) -> int:
     :param driver: The web driver used to interact with the browser
     """
     points = None
-    wait = 20
+    wait = 30
     while points is None:  # If the page doesn't load it will set points=None
         try:
             driver.get("https://account.microsoft.com/rewards/")
             wait_for(wait, jitter=False)
             body = driver.find_element_by_tag_name("mee-rewards-user-status-balance")
+            wait_for(5,jitter=False)
             points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
             wait += 5
         except Exception:
@@ -465,37 +466,46 @@ def daily_set(driver: webdriver.Firefox):
             except Exception:
                 wait_for(1, jitter=False)
         wait_for(9, jitter=False)
+        print("here")
+
         points = driver.find_element_by_id("id_rc")
         points.click()
-        wait_for(9, jitter=True)
+        wait_for(9, jitter=False)
         driver.switch_to.frame(driver.find_element_by_tag_name("iframe"))
         elem = driver.find_element_by_xpath("/html/body")
         flyout = elem.find_element_by_id("modern-flyout")
         wait_for(9, jitter=False)
+        print("here3")
+
         quiz = flyout.find_elements_by_class_name("promo_cont")[1]
         wait_for(9, jitter=False)
         quiz.click()
         driver.switch_to.default_content()
         wait_for(9, jitter=False)
+        print("here4")
 
         #  Grabs the name of the quiz (1 of 4 options)
-        quiz = driver.find_element_by_id("QuizContainerWrapper")
-        trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
-        wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
-        button_overlay = wrapper.find_element_by_id("btOverlay")
-        overlay_panel = button_overlay.find_element_by_id("overlayPanel")
-        trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
-        welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
-        title_class = welcome_container.find_element_by_class_name("rqTitle")
-        title = title_class.find_element_by_class_name("b_topTitle")
-        print(title.text)
 
-        if title.text == "Lightspeed quiz":
-            lightspeed_quiz(driver)
-        elif title.text == "This or That?":
-            thisorthat_quiz(driver)
-        elif title.text == "Supersonic quiz":
-            supersonic_quiz(driver)
+        quiz = driver.find_element_by_id("QuizContainerWrapper")
+        print(quiz)
+        if quiz is not None:
+            trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
+            wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
+            button_overlay = wrapper.find_element_by_id("btOverlay")
+            overlay_panel = button_overlay.find_element_by_id("overlayPanel")
+            trivia_data = overlay_panel.find_element_by_class_name("TriviaOverlayData")
+            welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
+            title_class = welcome_container.find_element_by_class_name("rqTitle")
+            title = title_class.find_element_by_class_name("b_topTitle")
+            print(title.text)
+
+            if title.text is not None:
+                if title.text == "Lightspeed quiz":
+                    lightspeed_quiz(driver)
+                elif title.text == "This or That?":
+                    thisorthat_quiz(driver)
+                elif title.text == "Supersonic quiz":
+                    supersonic_quiz(driver)
         else:  # Normal quiz
             for i in range(0, 10):
                 question = "QuestionPane" + str(i)
@@ -601,8 +611,8 @@ if __name__ == '__main__':
     MOBILE_USERAGENT = "Mozilla/5.0 (Android 6.0.1; Mobile; rv:77.0) Gecko/77.0 Firefox/77.0"
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     #  the amount of searches per account (1 search = 5 pts)
-    NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
-    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra
+    NUM_WORDS_DESKTOP = 1  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
+    NUM_WORDS_MOBILE = 0  # 20 searches for 100 Mobile pts; 5 extra
 
     try:
         assert path.isfile(GECKO_DRIVER)
