@@ -1,5 +1,5 @@
 from random import randint, choices, sample
-from time import sleep, time, gmtime, strftime
+from time import sleep, time, gmtime, strftime, asctime, localtime
 from os import getcwd, path
 from urllib.parse import quote_plus
 import configparser
@@ -197,7 +197,7 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
             #  Select a endpoint to use (search/ has the highest probability)
             endpoint = choices(all_enpoints, weights=distribution, k=1)[0]
             url_base = 'https://www.bing.com/{}?q='.format(endpoint)
-            print('{:4s}. URL : {}'.format(str(num + 1), url_base + quote_plus(phrase)))
+            print(GREEN + str(num+1) + "." + END + "\t" + asctime(localtime(time())) + "\t" + url_base + quote_plus(phrase))
             #  Try the request until you get a response
             while True:
                 try:
@@ -272,13 +272,13 @@ def find_account_points(driver: webdriver.Firefox) -> int:
     :param driver: The web driver used to interact with the browser
     """
     points = None
-    wait = 30
+    wait = 60
     while points is None:  # If the page doesn't load it will set points=None
         try:
             driver.get("https://account.microsoft.com/rewards/")
             wait_for(wait, jitter=False)
             body = driver.find_element_by_tag_name("mee-rewards-user-status-balance")
-            wait_for(5,jitter=False)
+            wait_for(30,jitter=False)
             points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
             wait += 5
         except Exception:
@@ -449,7 +449,7 @@ def daily_set(driver: webdriver.Firefox):
         free_ten_points = flyout.find_element_by_class_name("promo_cont")
         free_ten_points.click()
         wait_for(3, jitter=True, min=1, max=5)
-        print("Daily set 1")
+        print("Completed Daily set 1")
     except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
         pass
@@ -466,7 +466,6 @@ def daily_set(driver: webdriver.Firefox):
             except Exception:
                 wait_for(1, jitter=False)
         wait_for(9, jitter=False)
-        print("here")
 
         points = driver.find_element_by_id("id_rc")
         points.click()
@@ -475,19 +474,17 @@ def daily_set(driver: webdriver.Firefox):
         elem = driver.find_element_by_xpath("/html/body")
         flyout = elem.find_element_by_id("modern-flyout")
         wait_for(9, jitter=False)
-        print("here3")
 
         quiz = flyout.find_elements_by_class_name("promo_cont")[1]
         wait_for(9, jitter=False)
         quiz.click()
         driver.switch_to.default_content()
         wait_for(9, jitter=False)
-        print("here4")
+
 
         #  Grabs the name of the quiz (1 of 4 options)
 
         quiz = driver.find_element_by_id("QuizContainerWrapper")
-        print(quiz)
         if quiz is not None:
             trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
             wrapper = trivia_overlay.find_element_by_id("overlayWrapper")
@@ -497,7 +494,6 @@ def daily_set(driver: webdriver.Firefox):
             welcome_container = trivia_data.find_element_by_id("quizWelcomeContainer")
             title_class = welcome_container.find_element_by_class_name("rqTitle")
             title = title_class.find_element_by_class_name("b_topTitle")
-            print(title.text)
 
             if title.text is not None:
                 if title.text == "Lightspeed quiz":
@@ -528,9 +524,12 @@ def daily_set(driver: webdriver.Firefox):
                 button = next.find_element_by_class_name("wk_button")
                 button.click()
                 wait_for(9, jitter=False)
-        print("Daily set 2")
+        print("Completed Daily set 2")
     except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
+        print(RED+ "Failed" + END)
+        print(e)
+
         pass
 
     try:
@@ -565,7 +564,7 @@ def daily_set(driver: webdriver.Firefox):
         options = poll.find_element_by_css_selector(".btOptions2.bt_pollOptions")
         choice = options.find_element_by_id("btoption0")
         choice.click()
-        print("Daily set 3")
+        print("Completed Daily set 3")
         wait_for(9, jitter=False)
     except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
@@ -599,7 +598,7 @@ def print_report(time_taken: int):
             print(RED + "\tERROR Collecting {} Points".format(email) + END + "\n")
             continue
         print("\t{} Total points:  {}".format(email, points))
-        print("\t{} Earned points: {}".format(" " * len(email), FINAL_POINTS[email] - INITIAL_POINTS[email]))
+        print("\t{} Earned points: {}".format(" " * len(email), int(FINAL_POINTS[email] - INITIAL_POINTS[email])))
         if points >= 6500:
             print(GREEN + "\tTime to cash in $$$" + END)
         print()
@@ -611,8 +610,8 @@ if __name__ == '__main__':
     MOBILE_USERAGENT = "Mozilla/5.0 (Android 6.0.1; Mobile; rv:77.0) Gecko/77.0 Firefox/77.0"
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     #  the amount of searches per account (1 search = 5 pts)
-    NUM_WORDS_DESKTOP = 1  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
-    NUM_WORDS_MOBILE = 0  # 20 searches for 100 Mobile pts; 5 extra
+    NUM_WORDS_DESKTOP = 35 # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
+    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra
 
     try:
         assert path.isfile(GECKO_DRIVER)
