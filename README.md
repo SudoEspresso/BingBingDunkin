@@ -14,6 +14,7 @@ BingBingDunkin' automates searching using Bing as well as the daily quizes.
   - Make sure to follow the naming scheme for each set of credentials 
   
   ```
+  [DEFAULT]
   email1=
   password1= 
   email2=
