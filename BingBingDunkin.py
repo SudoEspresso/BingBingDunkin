@@ -7,15 +7,24 @@ from pytrends.request import TrendReq
 from selenium import webdriver
 from selenium.common import exceptions
 from selenium.webdriver.common.keys import Keys
-from requests.exceptions import Timeout
+from requests.exceptions import Timeout, ReadTimeout
 from tqdm import tqdm
 import sys
 
+#  Global Vars
 all_endpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
 GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
 INITIAL_POINTS = {}
 FINAL_POINTS = {}
+
+#  Email Settings
+SEND_EMAIL = True  # CHANGE ME
+EMAIL_SENDER_ADDRESS = "senderemail@gmail.com"  # CHANGE ME
+EMAIL_SENDER_PASSWORD = "SuP3rS3cuRe!@#$%^"  # CHANGE ME
+EMAIL_RECEIVERS = ["reciever@gmail.com", "anotheremail@gmail.com"]  # CHANGE ME
+
+
 #  Colors
 GREEN = "\033[32m"
 RED = "\033[91m"
@@ -135,6 +144,7 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
     elem1.send_keys(str(password))
     wait_for(2, jitter=False)
     elem1.send_keys(Keys.ENTER)
+    elem1.send_keys(Keys.ENTER)
     wait_for(7, jitter=False)
     #  Grabs the text after the login. Either blocked or asks to stay signed in
     while True:
@@ -157,16 +167,7 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
         return True
 
 
-def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDesktop=False):
-    """
-    Start will compile a dictionary from all credentials stored in credentials.ini. For each account
-    a browser will be started with the provided user agent and NUM_WORDS will be used to randomly select
-    an amount of phrases from all_trending_topics.
-    :param all_trending_topics: A list of strings which have search phrases
-    :param user_agent: String which represents the browser
-    :param NUM_WORDS: The number of search phrases to randomly select from the google trending searches
-    :param mimicDesktop: if True will mimic user interaction by clicking on results (only for desktop)
-    """
+def read_config_file() -> dict:
     #  Creates a parser for the credentials
     config = configparser.ConfigParser()
     config.read("credentials.ini")
@@ -176,7 +177,20 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
         if 'email' in key:
             #  accounts[email] = password
             accounts[config['DEFAULT'][key]] = config['DEFAULT']['password' + key.split("email")[1]]
+    return accounts
 
+
+def start(all_trending_topics: list, accounts: dict, user_agent: str, NUM_WORDS: int, mimicDesktop=False):
+    """
+    Start will compile a dictionary from all credentials stored in credentials.ini. For each account
+    a browser will be started with the provided user agent and NUM_WORDS will be used to randomly select
+    an amount of phrases from all_trending_topics.
+    :param all_trending_topics: A list of strings which have search phrases
+    :param accounts: A dictionary where the key is the email and value is the password
+    :param user_agent: String which represents the browser
+    :param NUM_WORDS: The number of search phrases to randomly select from the google trending searches
+    :param mimicDesktop: if True will mimic user interaction by clicking on results (only for desktop)
+    """
     #  Iterates over each account credentials
     for email in accounts.keys():
         #  Set up the driver profile
@@ -246,7 +260,7 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
             global FINAL_POINTS
             #  Modify the global var and add the account with its pts
             FINAL_POINTS[email] = points
-        print("------------------------------------------------------------------")
+        print("\n------------------------------------------------------------------")
         driver.quit()
         print()
 
@@ -305,7 +319,7 @@ def find_account_points(driver: webdriver.Firefox) -> int:
             body = driver.find_element_by_tag_name("mee-rewards-user-status-balance")
             wait_for(30, jitter=False)
             points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
-            wait += 5
+            wait += 10
         except Exception:
             wait_for(1, jitter=False)
     return points
@@ -600,10 +614,10 @@ def daily_set(driver: webdriver.Firefox):
         pass
 
 
-def print_report(time_taken: int):
+def print_report(difference_in_time: float):
     """
     Once everything is complete the resulting points will be output
-    :param time_taken: The amount of time taken to complete all searching (in seconds)
+    :param difference_in_time: The amount of time taken to complete all searching (in seconds)
     """
     print("""
  ____  ____  ____   __  ____  ____ 
@@ -611,7 +625,7 @@ def print_report(time_taken: int):
  )   / ) _)  ) __/(  O ))   /  )(  
 (__\_)(____)(__)   \__/(__\_) (__)
 """)
-    ty_res = gmtime(time_taken)
+    ty_res = gmtime(difference_in_time)
     res = strftime("%H:%M:%S", ty_res)
 
     print("Total Time: ", res)
@@ -633,8 +647,54 @@ def print_report(time_taken: int):
         print("\t{} Total points:  {}".format(email, points))
         print("\t{} Earned points: {}".format(" " * len(email), int(FINAL_POINTS[email] - INITIAL_POINTS[email])))
         if points >= 6500:
-            print(GREEN + "\tTime to cash in $$$" + END)
+            print(GREEN + "\t{} Time to cash in $$$".format(" " * len(email)) + END)
         print()
+
+
+def email_report(difference_in_time: float):
+    """
+    Once all accounts have finished the report will be emailed to all addresses specified
+    :param difference_in_time: The amount of time taken to complete all searching (in seconds)
+    """
+    from smtplib import SMTP_SSL
+    from ssl import create_default_context
+
+    port = 465  # For SSL
+    smtp_server = "smtp.gmail.com"
+
+    message = """
+    REPORT
+    """
+
+    ty_res = gmtime(difference_in_time)
+    res = strftime("%H:%M:%S", ty_res)
+
+    message += "\nTotal Time: " + str(res) + "\n"
+    #  If someone only runs the mobile or desktop the dictionaries wont be populated and cause errors
+    if FINAL_POINTS == {} or INITIAL_POINTS == {}:
+        message += "Either Mobile or Desktop was skipped" + "\n"
+        message += "INITIAL: " + str(INITIAL_POINTS) + "\n"
+        message += "FINAL: " + str(FINAL_POINTS) + "\n"
+        return
+    for email in FINAL_POINTS.keys():
+        points = FINAL_POINTS[email]
+        if points == "BLOCKED":
+            message += "\t{} IS BLOCKED".format(email) + "\n"
+            continue
+        if FINAL_POINTS[email] is None or INITIAL_POINTS[email] is None:
+            message += "\tERROR Collecting {} Points".format(email) + "\n"
+            continue
+        message += "\t{} Total points:  {}".format(email, points) + "\n"
+        message += "\t{} Earned points: {}".format(" " * len(email), int(FINAL_POINTS[email] - INITIAL_POINTS[email])) + "\n"
+        if points >= 6500:
+            message += "\t{} Time to cash in $$$".format(" " * len(email)) + "\n"
+
+    context = create_default_context()
+    with SMTP_SSL(smtp_server, port, context=context) as server:
+        server.login(EMAIL_SENDER_ADDRESS, EMAIL_SENDER_PASSWORD)
+        for receiver in EMAIL_RECEIVERS:
+            server.sendmail(EMAIL_SENDER_ADDRESS, receiver, message)
+            wait_for(1, jitter=False)
 
 
 if __name__ == '__main__':
@@ -655,9 +715,14 @@ if __name__ == '__main__':
     print(ASCII_ART)
 
     print("Google Trending Topics")
-    all_trending_topics = google_trends()
+    try:
+        all_trending_topics = google_trends()
+    except ReadTimeout as e:
+        print(e)
+        exit(1)
 
     START_TIME = time()
+    accounts = read_config_file()
     print("""
  _  _   __  ____  __  __    ____ 
 ( \/ ) /  \(  _ \(  )(  )  (  __)
@@ -665,7 +730,7 @@ if __name__ == '__main__':
 \_)(_/ \__/(____/(__)\____/(____)
 
 \n""")
-    start(all_trending_topics, MOBILE_USERAGENT, NUM_WORDS_MOBILE, mimicDesktop=False)
+    start(all_trending_topics, accounts, MOBILE_USERAGENT, NUM_WORDS_MOBILE, mimicDesktop=False)
 
     wait_for(60, jitter=False)
 
@@ -675,9 +740,12 @@ if __name__ == '__main__':
  ) D ( ) _) \___ \ )  (   )( (  O )) __/
 (____/(____)(____/(__\_) (__) \__/(__)  
 \n""")
-    start(all_trending_topics, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
+    start(all_trending_topics, accounts, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
     STOP_TIME = time()
 
     difference_in_time = STOP_TIME - START_TIME
-
-    print_report(difference_in_time)
+    if SEND_EMAIL:
+        email_report(difference_in_time)
+        print_report(difference_in_time)
+    else:
+        print_report(difference_in_time)
