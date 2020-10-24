@@ -719,6 +719,7 @@ if __name__ == '__main__':
         all_trending_topics = google_trends()
     except ReadTimeout as e:
         print(e)
+        print("PLEASE RE-RUN THE SCRIPT")
         exit(1)
 
     START_TIME = time()
