@@ -1,6 +1,6 @@
 from random import randint, choices, sample
 from time import sleep, time, gmtime, strftime, asctime, localtime
-from os import getcwd, path
+from os import getcwd, path, devnull
 from urllib.parse import quote_plus
 import configparser
 from pytrends.request import TrendReq
@@ -9,10 +9,11 @@ from selenium.common import exceptions
 from selenium.webdriver.common.keys import Keys
 from requests.exceptions import Timeout
 from tqdm import tqdm
+import sys
 
-all_enpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
+all_endpoints = ["news/search", "videos/search", "images/search", "shop", "search"]  # no leading /
 distribution = [.2, .05, .1, .05, .6]  # Probability distribution for the above endpoints
-GECKO_DRIVER = 'geckodriver'  # CHANGE ME (path to downloaded web-driver)
+GECKO_DRIVER = 'geckodriver.exe'  # CHANGE ME (path to downloaded web-driver)
 INITIAL_POINTS = {}
 FINAL_POINTS = {}
 #  Colors
@@ -44,6 +45,21 @@ def wait_for(sec=2, jitter=True, min=3, max=100):
         sleep(sec + randint(min, max))
     else:
         sleep(sec)
+
+
+def blockPrint():
+    """
+    When called it will redirect stdout to /dev/null so that until turned back on
+    nothing will be able to print to stdout
+    """
+    sys.stdout = open(devnull, 'w')
+
+
+def enablePrint():
+    """
+    When called it will undo the changes made by blockPrint() and un-sinkhole stdout
+    """
+    sys.stdout = sys.__stdout__
 
 
 def google_trends() -> list:
@@ -107,19 +123,19 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
             break
         except Exception:
             wait_for(1, jitter=False)
-    wait_for(5, jitter=False)
+    wait_for(9, jitter=False)
     elem = driver.find_element_by_name('loginfmt')
     elem.clear()
     elem.send_keys(email)
-    wait_for(1, jitter=False)
+    wait_for(2, jitter=False)
     elem.send_keys(Keys.RETURN)
-    wait_for(5, jitter=False)
+    wait_for(7, jitter=False)
     elem1 = driver.find_element_by_name('passwd')
     elem1.clear()
     elem1.send_keys(str(password))
-    wait_for(1, jitter=False)
+    wait_for(2, jitter=False)
     elem1.send_keys(Keys.ENTER)
-    wait_for(5, jitter=False)
+    wait_for(7, jitter=False)
     #  Grabs the text after the login. Either blocked or asks to stay signed in
     while True:
         try:
@@ -195,13 +211,20 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
         #  Once logged in search using the random google trending phrases
         for num, phrase in enumerate(words_list):
             #  Select a endpoint to use (search/ has the highest probability)
-            endpoint = choices(all_enpoints, weights=distribution, k=1)[0]
+            endpoint = choices(all_endpoints, weights=distribution, k=1)[0]
             url_base = 'https://www.bing.com/{}?q='.format(endpoint)
             print(GREEN + str(num+1) + "." + END + "\t" + asctime(localtime(time())) + "\t" + url_base + quote_plus(phrase))
             #  Try the request until you get a response
             while True:
                 try:
+                    """
+                    THE REASON FOR BLOCKING STDOUT. THE FOLLOWING ERROR MESSAGE COMMONLY PRINTS
+                    Alert Text: None
+                    Message: Dismissed user prompt dialog: Want more relevant search results? Allow Bing to access your location. Click 'Allow' on the next prompt.
+                    """
+                    blockPrint()  # Blocking stdout to prevent error handling from showing up
                     driver.get(url_base + quote_plus(phrase))
+                    enablePrint()  # Re-enabling printing to stdout
                     if mimicDesktop and endpoint == 'search':  # Doesn't work for mobile
                         #  Mimic human interaction by clicking on links on the page
                         mimic_desktop_interaction(driver)
@@ -223,7 +246,7 @@ def start(all_trending_topics: list, user_agent: str, NUM_WORDS: int, mimicDeskt
             global FINAL_POINTS
             #  Modify the global var and add the account with its pts
             FINAL_POINTS[email] = points
-
+        print("------------------------------------------------------------------")
         driver.quit()
         print()
 
@@ -255,12 +278,14 @@ def mimic_desktop_interaction(driver: webdriver.Firefox):
     for site in sample(returned_links.keys(), amt):
         wait_for(sec=1, jitter=True, min=3, max=8)
         print('\t\tClicking : {}'.format(site))
+        blockPrint()  # Blocking output to std in case of caught exceptions
         try:
             returned_links[site].click()
         #  The DOM is different sometimes clicking the link will error
         except exceptions.StaleElementReferenceException:
             driver.get(site.split("#")[0])  # removes the DOM part from the URL
 
+        enablePrint()  # Re-enabling output to stdout
         wait_for(sec=1, jitter=True, min=3, max=8)
         while "bing.com" not in driver.current_url:
             driver.back()
@@ -278,7 +303,7 @@ def find_account_points(driver: webdriver.Firefox) -> int:
             driver.get("https://account.microsoft.com/rewards/")
             wait_for(wait, jitter=False)
             body = driver.find_element_by_tag_name("mee-rewards-user-status-balance")
-            wait_for(30,jitter=False)
+            wait_for(30, jitter=False)
             points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
             wait += 5
         except Exception:
@@ -449,9 +474,10 @@ def daily_set(driver: webdriver.Firefox):
         free_ten_points = flyout.find_element_by_class_name("promo_cont")
         free_ten_points.click()
         wait_for(3, jitter=True, min=1, max=5)
-        print("Completed Daily set 1")
+        print("\t\tCompleted Daily set 1")
     except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
+        print(RED + "\t\tFailed Daily Set 1 " + END)
         pass
 
     try:
@@ -481,9 +507,7 @@ def daily_set(driver: webdriver.Firefox):
         driver.switch_to.default_content()
         wait_for(9, jitter=False)
 
-
         #  Grabs the name of the quiz (1 of 4 options)
-
         quiz = driver.find_element_by_id("QuizContainerWrapper")
         if quiz is not None:
             trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
@@ -496,12 +520,18 @@ def daily_set(driver: webdriver.Firefox):
             title = title_class.find_element_by_class_name("b_topTitle")
 
             if title.text is not None:
+                """
+                ERROR MESSAGE WHEN QUIZ FAILS
+                Message: Unable to locate element: [id="QuizContainerWrapper"]
+                """
+                blockPrint()  # Block Printing to avoid the above error message
                 if title.text == "Lightspeed quiz":
                     lightspeed_quiz(driver)
                 elif title.text == "This or That?":
                     thisorthat_quiz(driver)
                 elif title.text == "Supersonic quiz":
                     supersonic_quiz(driver)
+                enablePrint()  # Re-enable printing to stdout
         else:  # Normal quiz
             for i in range(0, 10):
                 question = "QuestionPane" + str(i)
@@ -524,12 +554,10 @@ def daily_set(driver: webdriver.Firefox):
                 button = next.find_element_by_class_name("wk_button")
                 button.click()
                 wait_for(9, jitter=False)
-        print("Completed Daily set 2")
+        print("\t\tCompleted Daily set 2")
     except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
-        print(RED+ "Failed" + END)
-        print(e)
-
+        print(RED + "\t\tFailed Daily Set 2 " + END)
         pass
 
     try:
@@ -564,10 +592,11 @@ def daily_set(driver: webdriver.Firefox):
         options = poll.find_element_by_css_selector(".btOptions2.bt_pollOptions")
         choice = options.find_element_by_id("btoption0")
         choice.click()
-        print("Completed Daily set 3")
+        print("\t\tCompleted Daily set 3")
         wait_for(9, jitter=False)
     except Exception as e:
         #  Either the user interacted with the screen or the daily set is already done
+        print(RED + "\t\tFailed Daily Set 3 " + END)
         pass
 
 
@@ -576,8 +605,6 @@ def print_report(time_taken: int):
     Once everything is complete the resulting points will be output
     :param time_taken: The amount of time taken to complete all searching (in seconds)
     """
-    global FINAL_POINTS
-    global INITIAL_POINTS
     print("""
  ____  ____  ____   __  ____  ____ 
 (  _ \(  __)(  _ \ /  \(  _ \(_  _)
@@ -588,6 +615,12 @@ def print_report(time_taken: int):
     res = strftime("%H:%M:%S", ty_res)
 
     print("Total Time: ", res)
+    #  If someone only runs the mobile or desktop the dictionaries wont be populated and cause errors
+    if FINAL_POINTS == {} or INITIAL_POINTS == {}:
+        print("Either Mobile or Desktop was skipped")
+        print("INITIAL: ", INITIAL_POINTS)
+        print("FINAL: ", FINAL_POINTS)
+        return
     for email in FINAL_POINTS.keys():
         points = FINAL_POINTS[email]
         if points == "BLOCKED":
@@ -610,8 +643,8 @@ if __name__ == '__main__':
     MOBILE_USERAGENT = "Mozilla/5.0 (Android 6.0.1; Mobile; rv:77.0) Gecko/77.0 Firefox/77.0"
     #  Don't change. More != better. There is a maximum amount of points you can get per day
     #  the amount of searches per account (1 search = 5 pts)
-    NUM_WORDS_DESKTOP = 35 # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra
-    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra
+    NUM_WORDS_DESKTOP = 35  # 30 searches for 150 Desktop pts; 4 searches for 20 Edge pts; 1 extra just in case
+    NUM_WORDS_MOBILE = 25  # 20 searches for 100 Mobile pts; 5 extra just in case
 
     try:
         assert path.isfile(GECKO_DRIVER)
