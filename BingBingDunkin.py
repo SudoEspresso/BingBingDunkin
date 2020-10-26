@@ -160,7 +160,7 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
 
     if "Stay signed in?" not in login_result:  # Blocked
         print(RED + "ACCOUNT BLOCKED\n" + END)
-        print("\n------------------------------------------------------------------")
+        print("------------------------------------------------------------------\n")
         global FINAL_POINTS
         global INITIAL_POINTS
         FINAL_POINTS[email] = "BLOCKED"
@@ -252,7 +252,7 @@ def start(all_trending_topics: list, accounts: dict, user_agent: str, NUM_WORDS:
                     print(e1)
                     wait_for(1, jitter=True, min=2, max=10)
 
-            wait_for(3, jitter=True, min=0, max=60)
+            wait_for(3, jitter=True, min=0, max=90)
         if mimicDesktop:  # if Desktop
             #  This condition hits when the desktop searches have finished
             print("\nStarting Daily Set")
@@ -303,10 +303,11 @@ def mimic_desktop_interaction(driver: webdriver.Firefox):
         except exceptions.StaleElementReferenceException:
             driver.get(site.split("#")[0])  # removes the DOM part from the URL
 
-        enablePrint()  # Re-enabling output to stdout
         wait_for(sec=1, jitter=True, min=3, max=8)
-        while "bing.com" not in driver.current_url:
+        while "https://www.bing.com/search" not in driver.current_url:
             driver.back()
+
+        enablePrint()  # Re-enabling output to stdout
 
 
 def find_account_points(driver: webdriver.Firefox) -> int:
@@ -323,6 +324,12 @@ def find_account_points(driver: webdriver.Firefox) -> int:
             body = driver.find_element_by_tag_name("mee-rewards-user-status-balance")
             wait_for(30, jitter=False)
             points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
+            wait_for(20, jitter=False)
+            points2 = int(body.find_element_by_tag_name("span").text.replace(",", ""))
+            # There is javascript that iterates from 0 to your points and sometimes it doesnt finish loading
+            if points != points2:
+                wait_for(10, jitter=False)
+                points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
             wait += 10
         except Exception:
             wait_for(1, jitter=False)
@@ -494,6 +501,7 @@ def daily_set(driver: webdriver.Firefox):
         wait_for(3, jitter=True, min=1, max=5)
         print("\t\tCompleted Daily set 1")
     except Exception as e:
+        enablePrint()  # Re-enable printing to stdout
         #  Either the user interacted with the screen or the daily set is already done
         print(RED + "\t\tFailed Daily Set 1 " + END)
         pass
@@ -574,6 +582,7 @@ def daily_set(driver: webdriver.Firefox):
                 wait_for(9, jitter=False)
         print("\t\tCompleted Daily set 2")
     except Exception as e:
+        enablePrint()  # Re-enable printing to stdout
         #  Either the user interacted with the screen or the daily set is already done
         print(RED + "\t\tFailed Daily Set 2 " + END)
         pass
@@ -613,6 +622,7 @@ def daily_set(driver: webdriver.Firefox):
         print("\t\tCompleted Daily set 3")
         wait_for(9, jitter=False)
     except Exception as e:
+        enablePrint()  # Re-enable printing to stdout
         #  Either the user interacted with the screen or the daily set is already done
         print(RED + "\t\tFailed Daily Set 3 " + END)
         pass
@@ -732,6 +742,7 @@ if __name__ == '__main__':
 \_)(_/ \__/(____/(__)\____/(____)
 
 \n""")
+    #  This will also grab the initial amount of points the accounts has
     start(all_trending_topics, accounts, MOBILE_USERAGENT, NUM_WORDS_MOBILE, mimicDesktop=False)
 
     wait_for(60, jitter=False)
@@ -742,6 +753,7 @@ if __name__ == '__main__':
  ) D ( ) _) \___ \ )  (   )( (  O )) __/
 (____/(____)(____/(__\_) (__) \__/(__)  
 \n""")
+    #  This will also grab the final amount of points the accounts has
     start(all_trending_topics, accounts, DESKTOP_USERAGENT, NUM_WORDS_DESKTOP, mimicDesktop=True)
     STOP_TIME = time()
 
