@@ -21,7 +21,7 @@ FINAL_POINTS = {}
 SEND_EMAIL = False  # CHANGE ME
 EMAIL_SENDER_ADDRESS = "senderEmail@domain.com"  # CHANGE ME
 EMAIL_SENDER_PASSWORD = "Sup3rseCureP4ssword"  # CHANGE ME
-EMAIL_RECEIVERS = ["recivingEmail1@gmail.com", "recivingEmail2@gmail.com"]  # CHANGE ME
+EMAIL_RECEIVERS = ["receivingEmail1@gmail.com", "receivingEmail2@gmail.com"]  # CHANGE ME
 SMTP_PORT = 587  # CHANGE ME
 SMTP_SERVER = "smtp.mailgun.org"  # CHANGE ME
 
