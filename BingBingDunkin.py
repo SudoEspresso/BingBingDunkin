@@ -6,7 +6,6 @@ import configparser
 from pytrends.request import TrendReq
 from selenium import webdriver
 from selenium.common import exceptions
-from selenium.webdriver.common.keys import Keys
 from requests.exceptions import Timeout, ReadTimeout
 from tqdm import tqdm
 import sys
@@ -19,11 +18,12 @@ INITIAL_POINTS = {}
 FINAL_POINTS = {}
 
 #  Email Settings
-SEND_EMAIL = True  # CHANGE ME
-EMAIL_SENDER_ADDRESS = "senderemail@gmail.com"  # CHANGE ME
-EMAIL_SENDER_PASSWORD = "SuP3rS3cuRe!@#$%^"  # CHANGE ME
-EMAIL_RECEIVERS = ["reciever@gmail.com", "anotheremail@gmail.com"]  # CHANGE ME
-
+SEND_EMAIL = False  # CHANGE ME
+EMAIL_SENDER_ADDRESS = "senderEmail@domain.com"  # CHANGE ME
+EMAIL_SENDER_PASSWORD = "Sup3rseCureP4ssword"  # CHANGE ME
+EMAIL_RECEIVERS = ["recivingEmail1@gmail.com", "recivingEmail2@gmail.com"]  # CHANGE ME
+SMTP_PORT = 587  # CHANGE ME
+SMTP_SERVER = "smtp.mailgun.org"  # CHANGE ME
 
 #  Colors
 GREEN = "\033[32m"
@@ -112,7 +112,9 @@ def google_trends() -> list:
                 break
             except Timeout as e:
                 wait_for(2, jitter=False)
-    print("\r")  # To prevent the loading bar from going on two lines
+    print("\r\n")  # To prevent the loading bar from going on two lines
+    print("Top 20 Google Searches Today:")
+    print(list_of_trending)  # Output the top 20 searches of the day
     #  A list of all trend words as well as their related searches
     return all_trendin_phrases
 
@@ -137,14 +139,15 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
     elem.clear()
     elem.send_keys(email)
     wait_for(2, jitter=False)
-    elem.send_keys(Keys.RETURN)
+    next_button = driver.find_element_by_id("idSIButton9")
+    next_button.click()
     wait_for(7, jitter=False)
     elem1 = driver.find_element_by_name('passwd')
     elem1.clear()
     elem1.send_keys(str(password))
     wait_for(2, jitter=False)
-    elem1.send_keys(Keys.ENTER)
-    elem1.send_keys(Keys.ENTER)
+    next_button = driver.find_element_by_id("idSIButton9")
+    next_button.click()
     wait_for(7, jitter=False)
     #  Grabs the text after the login. Either blocked or asks to stay signed in
     while True:
@@ -659,9 +662,6 @@ def email_report(difference_in_time: float):
     from smtplib import SMTP_SSL
     from ssl import create_default_context
 
-    port = 465  # For SSL
-    smtp_server = "smtp.gmail.com"
-
     message = """
     REPORT
     """
@@ -690,7 +690,7 @@ def email_report(difference_in_time: float):
             message += "\t{} Time to cash in $$$".format(" " * len(email)) + "\n"
 
     context = create_default_context()
-    with SMTP_SSL(smtp_server, port, context=context) as server:
+    with SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=context) as server:
         server.login(EMAIL_SENDER_ADDRESS, EMAIL_SENDER_PASSWORD)
         for receiver in EMAIL_RECEIVERS:
             server.sendmail(EMAIL_SENDER_ADDRESS, receiver, message)
@@ -746,7 +746,7 @@ if __name__ == '__main__':
 
     difference_in_time = STOP_TIME - START_TIME
     if SEND_EMAIL:
-        email_report(difference_in_time)
         print_report(difference_in_time)
+        email_report(difference_in_time)
     else:
         print_report(difference_in_time)
