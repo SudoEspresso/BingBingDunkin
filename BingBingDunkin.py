@@ -160,6 +160,7 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
 
     if "Stay signed in?" not in login_result:  # Blocked
         print(RED + "ACCOUNT BLOCKED\n" + END)
+        print("\n------------------------------------------------------------------")
         global FINAL_POINTS
         global INITIAL_POINTS
         FINAL_POINTS[email] = "BLOCKED"
