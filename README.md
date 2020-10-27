@@ -23,9 +23,28 @@ BingBingDunkin' automates searching using Bing as well as the daily quizes.
   email11=
   password11=
   ```
-  
+
 - Run it!
   - `python3 BingBingDunkin.py`
+  
+# Emailing
+
+This program has the option to email you the results when it finishes so you don't need to check on it. I suggest using [MailGun](mailgun.com) it is free and is much better and easier than using a personal account.
+
+1. First make an account
+1. Verify your email ( They will ask for a phone number )
+1. Go to Sending -> Overview -> Click on the domain
+1. On the right hand side you will see "Authorized Recipients" enter all the recipients you want. ( They will need to verify each email )
+1. Click SMTP
+- Go into BingBingDunkin.py and change the following 
+  - `EMAIL_SENDER_ADDRESS` to be your MailGun email address
+  - `EMAIL_SENDER_PASSWORD` the password given under the email address
+  - `EMAIL_RECEIVERS` a list of email addresses you want to send the report to ( They must be verified )
+  - DO NOT change the port of the SMTP server
+  
+### Gmail Tips
+The emails will most likely be sent to spam in your Gmail inbox.
+Follow [this article](https://www.lifewire.com/how-to-whitelist-a-sender-or-domain-in-gmail-1172106) to force the emails to be not marked as spam.
   
 # Tips
 - You can automate this process to run daily by setting a cron job (if on Linux) or by creating a scheduled task (if on Windows)
