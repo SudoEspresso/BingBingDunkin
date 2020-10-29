@@ -141,13 +141,18 @@ def login(driver: webdriver.Firefox, email: str, password: str) -> bool:
     wait_for(2, jitter=False)
     next_button = driver.find_element_by_id("idSIButton9")
     next_button.click()
-    wait_for(7, jitter=False)
+    wait_for(12, jitter=False)
     elem1 = driver.find_element_by_name('passwd')
     elem1.clear()
     elem1.send_keys(str(password))
     wait_for(2, jitter=False)
     next_button = driver.find_element_by_id("idSIButton9")
     next_button.click()
+    wait_for(1, jitter=False)
+    try:
+        next_button.click()
+    except Exception as e:
+        pass
     wait_for(7, jitter=False)
     #  Grabs the text after the login. Either blocked or asks to stay signed in
     while True:
@@ -264,6 +269,7 @@ def start(all_trending_topics: list, accounts: dict, user_agent: str, NUM_WORDS:
             global FINAL_POINTS
             #  Modify the global var and add the account with its pts
             FINAL_POINTS[email] = points
+            print("Account Points:", points)
         print("\n------------------------------------------------------------------")
         driver.quit()
         print()
@@ -651,7 +657,8 @@ def print_report(difference_in_time: float):
         return
     for email in FINAL_POINTS.keys():
         points = FINAL_POINTS[email]
-        if points == "BLOCKED":
+        #  Checking to see if either dictionary reports the account as blocked
+        if points == "BLOCKED" or INITIAL_POINTS[email] == "BLOCKED":
             print(RED + "\t{} IS BLOCKED".format(email) + END)
             print()
             continue
