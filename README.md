@@ -6,9 +6,11 @@ BingBingDunkin' automates searching using Bing as well as the daily quizes.
 
 `pip3 install -r requirements.txt`
 
+_NOTE: BingBingDunkin.py ONLY works with the firefox selenium driver_
 - Click [here](https://github.com/mozilla/geckodriver/releases) to get the latest release of mozilla's web-driver
   - Choose the appropriate one for your computers architecture
-  - Once downloaded extract the binary and inside `BingBingDunkin.py` set the full path to the binary
+  - Once downloaded extract the binary and inside the `BingBingDunkin` folder 
+    - Go into `BingBingDunkin.py` and change `GECKO_DRIVER` variable at the top of the file to be the name of what you just extracted
 
 - Modify credentials.ini to have the emails and passwords for each account
   - Make sure to follow the naming scheme for each set of credentials 
