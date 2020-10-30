@@ -250,7 +250,7 @@ def start(all_trending_topics: list, accounts: dict, user_agent: str, NUM_WORDS:
                     enablePrint()  # Re-enabling printing to stdout
                     if mimicDesktop and endpoint == 'search':  # Doesn't work for mobile
                         #  Mimic human interaction by clicking on links on the page
-                        mimic_desktop_interaction(driver)
+                        mimic_desktop_interaction(driver, url_base + quote_plus(phrase))
                     break  # While
 
                 except Exception as e1:
@@ -275,7 +275,7 @@ def start(all_trending_topics: list, accounts: dict, user_agent: str, NUM_WORDS:
         print()
 
 
-def mimic_desktop_interaction(driver: webdriver.Firefox):
+def mimic_desktop_interaction(driver: webdriver.Firefox, url: str):
     """
     After a search using bing.com/search this function will go through the page and find
     any clickable search results. A number between 0 - 3 will be chosen and that will be
@@ -310,8 +310,13 @@ def mimic_desktop_interaction(driver: webdriver.Firefox):
             driver.get(site.split("#")[0])  # removes the DOM part from the URL
 
         wait_for(sec=1, jitter=True, min=3, max=8)
+        trys = 0
         while "https://www.bing.com/search" not in driver.current_url:
+            if trys > 5:
+                driver.get(url)
+                break
             driver.back()
+            trys += 1
 
         enablePrint()  # Re-enabling output to stdout
 
@@ -336,8 +341,9 @@ def find_account_points(driver: webdriver.Firefox) -> int:
             if points != points2:
                 wait_for(10, jitter=False)
                 points = int(body.find_element_by_tag_name("span").text.replace(",", ""))
-            wait += 10
         except Exception:
+            wait += 10
+            points = None
             wait_for(1, jitter=False)
     return points
 
@@ -391,6 +397,7 @@ def thisorthat_quiz(driver: webdriver.Firefox):
     Completes the "This Or That?" quiz
     :param driver: The web driver used to interact with the browser
     """
+    wait_for(3, jitter=False)
     # get the number of points
     quiz = driver.find_element_by_id("QuizContainerWrapper")
     trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
@@ -405,6 +412,7 @@ def thisorthat_quiz(driver: webdriver.Firefox):
     points = points.split(" ")[0]
     num_questions = int(points) / 5
 
+    wait_for(3, jitter=False)
     num_questions = int(num_questions)
     quiz = driver.find_element_by_id("QuizContainerWrapper")
     trivia_overlay = quiz.find_element_by_id("b_TriviaOverlay")
@@ -696,14 +704,14 @@ def email_report(difference_in_time: float):
         return
     for email in FINAL_POINTS.keys():
         points = FINAL_POINTS[email]
-        if points == "BLOCKED":
+        if points == "BLOCKED" or INITIAL_POINTS[email] == "BLOCKED":
             message += "\t{} IS BLOCKED".format(email) + "\n"
             continue
         if FINAL_POINTS[email] is None or INITIAL_POINTS[email] is None:
             message += "\tERROR Collecting {} Points".format(email) + "\n"
             continue
         message += "\t{} Total points:  {}".format(email, points) + "\n"
-        message += "\t{} Earned points: {}".format(" " * len(email), int(FINAL_POINTS[email] - INITIAL_POINTS[email])) + "\n"
+        message += "\t{} Earned points: {}".format(" " * len(email), str(int(FINAL_POINTS[email]) - int(INITIAL_POINTS[email]))) + "\n"
         if points >= 6500:
             message += "\t{} Time to cash in $$$".format(" " * len(email)) + "\n"
 
