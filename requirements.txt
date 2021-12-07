@@ -1,0 +1,5 @@
+tqdm
+smtplib
+pytrends>=4.7.3
+selenium>=3.141.0
+requests>=2.19.1
